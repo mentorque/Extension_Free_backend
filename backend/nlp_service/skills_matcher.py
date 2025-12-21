@@ -1267,15 +1267,7 @@ class SkillClassifier:
             elapsed_ms = (time.time() - start_time) * 1000
             self.total_time_ms += elapsed_ms
             
-            # Log embedding classification results - flush immediately for Node.js
-            result_emoji = "✅" if is_technical else "🚫"
-            result_text = category
-            log_msg = (f"[EMBEDDINGS] {result_emoji} '{skill}': {result_text} "
-                      f"(important_tech={max_important_tech_sim:.3f}, "
-                      f"less_important_tech={max_less_important_tech_sim:.3f}, "
-                      f"non_tech={max_non_tech_sim:.3f}, "
-                      f"confidence={max_confidence:.3f}, threshold={threshold:.2f}, {elapsed_ms:.1f}ms)")
-            safe_stderr_print(log_msg, flush=True)
+            # Removed verbose per-skill logging - only track stats
             
             if is_technical:
                 self.kept_count += 1
@@ -1374,25 +1366,40 @@ class SkillsDatabase:
         try:
             loaded_count = 0
             filtered_count = 0
+            total_processed = 0
             
             with open(self.csv_path, 'r', encoding='utf-8', errors='ignore') as f:
                 reader = csv.DictReader(f)
-                for row in reader:
+                # Count total rows first for progress
+                rows = list(reader)
+                total_rows = len(rows)
+                
+                for row in rows:
                     skill = row.get('Skill', '').strip()
                     if skill:
                         # Clean up quotes and newlines
                         skill = skill.replace('"', '').replace('\n', ' ').strip()
                         if skill and len(skill) > 1:  # Skip single characters
+                            total_processed += 1
+                            
                             # PRIMARY FILTER: Semantic classification using embeddings
                             # This filters out non-technical terms from skills.csv using ML
                             if self.classifier.available:
-                                safe_stderr_print(f"[EMBEDDINGS-LOAD] 🔍 Checking skill from CSV: '{skill}'", flush=True)
+                                # Show progress every 100 skills or at milestones
+                                if total_processed % 100 == 0 or total_processed == total_rows:
+                                    progress_pct = (total_processed / total_rows * 100) if total_rows > 0 else 0
+                                    safe_stderr_print(f"\r🔄 Loading skills: {total_processed}/{total_rows} ({progress_pct:.1f}%) - Kept: {loaded_count}, Filtered: {filtered_count}", end='', flush=True)
+                                
                                 if not self.classifier.is_technical_skill(skill, threshold=0.15):
                                     filtered_count += 1
                                     continue
                             
                             skills_set.add(skill)
                             loaded_count += 1
+                
+                # Final progress update
+                if self.classifier.available and total_processed > 0:
+                    safe_stderr_print(f"\r✅ Loaded skills: {loaded_count} kept, {filtered_count} filtered from {total_processed} total", flush=True)
             
             if self.classifier.available:
                 stats = self.classifier.get_stats()
