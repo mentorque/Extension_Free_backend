@@ -349,23 +349,23 @@ const uploadResume = async (req, res, next) => {
       });
     }
     
-    // Extract keywords from resume using NLP keyword extraction (not just skills database)
+    // Extract keywords from resume using comprehensive keyword extraction
     const normalizedServiceUrl = normalizeUrl(NLP_SERVICE_URL);
-    const extractKeywordsUrl = `${normalizedServiceUrl}/extract`;
-    const extractSkillsUrl = `${normalizedServiceUrl}/extract-skills`;
+    const extractResumeKeywordsUrl = `${normalizedServiceUrl}/extract-resume-keywords`;
+    const extractKeywordsUrl = `${normalizedServiceUrl}/extract`;  // Fallback: NLP keyword extraction
     
     console.log('[uploadResume] 🔍 Extracting keywords from resume text...');
-    console.log(`[uploadResume]   Using: NLP keyword extraction (patterns, named entities, noun phrases)`);
-    console.log(`[uploadResume]   Endpoint: ${extractKeywordsUrl}`);
+    console.log(`[uploadResume]   Using: Comprehensive keyword extraction (keywords database + NLP patterns)`);
+    console.log(`[uploadResume]   Endpoint: ${extractResumeKeywordsUrl}`);
     
     const nlpCallStartTime = Date.now();
     let keywordsResponse;
     let extractResponse;
     
-    // First, extract keywords using NLP (extracts all relevant terms from text)
+    // Primary: Extract keywords using comprehensive keyword database
     try {
       keywordsResponse = await axios.post(
-        extractKeywordsUrl,
+        extractResumeKeywordsUrl,
         { 
           text: resumeText
         },
@@ -376,14 +376,32 @@ const uploadResume = async (req, res, next) => {
       );
       console.log(`[uploadResume] ✅ Keyword extraction completed`);
     } catch (error) {
-      console.warn('[uploadResume] ⚠️  Keyword extraction failed, continuing with skills only:', error.message);
-      keywordsResponse = { data: { keywords: [] } };
+      console.warn('[uploadResume] ⚠️  Comprehensive keyword extraction failed, trying fallback:', error.message);
+      
+      // Fallback: Use NLP keyword extraction
+      try {
+        keywordsResponse = await axios.post(
+          extractKeywordsUrl,
+          { 
+            text: resumeText
+          },
+          { 
+            timeout: NLP_SERVICE_TIMEOUT,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+        console.log(`[uploadResume] ✅ Fallback keyword extraction completed`);
+      } catch (fallbackError) {
+        console.warn('[uploadResume] ⚠️  Fallback keyword extraction also failed:', fallbackError.message);
+        keywordsResponse = { data: { keywords: [] } };
+      }
     }
     
-    // Also extract skills using PhraseMatcher (for normalization and classification)
-    console.log('[uploadResume] 🔍 Also extracting skills using PhraseMatcher + skills.csv...');
+    // Also extract skills using PhraseMatcher (for 3-section classification)
+    const extractSkillsUrl = `${normalizedServiceUrl}/extract-skills`;
+    console.log('[uploadResume] 🔍 Also extracting skills using PhraseMatcher for classification...');
     console.log(`[uploadResume]   Endpoint: ${extractSkillsUrl}`);
-    console.log(`[uploadResume]   Using: spaCy PhraseMatcher with 38k skills from skills.csv`);
+    console.log(`[uploadResume]   Using: spaCy PhraseMatcher with skills.csv for 3-section classification`);
     
     try {
       extractResponse = await axios.post(
@@ -400,46 +418,23 @@ const uploadResume = async (req, res, next) => {
       const nlpCallDuration = Date.now() - nlpCallStartTime;
       console.log(`[uploadResume] ✅ NLP extraction completed in ${nlpCallDuration}ms`);
     } catch (error) {
-      console.error('[uploadResume] ❌ Error calling NLP service:', error.message);
-      console.error('[uploadResume]   Error details:', {
-        code: error.code,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data
-      });
-      
-      if (error.code === 'ECONNREFUSED') {
-        return res.status(503).json({
-          error: 'Service unavailable',
-          message: 'Could not connect to NLP service. The service may need to be restarted.'
-        });
-      }
-      
-      if (error.response?.status === 404) {
-        console.error('[uploadResume] ⚠️  /extract-skills endpoint not found. Service may need restart.');
-        return res.status(503).json({
-          error: 'Service endpoint not available',
-          message: 'The /extract-skills endpoint is not available. Please restart the NLP service or check server logs.',
-          hint: 'The NLP service may be running an old version. It should auto-restart on next request.'
-        });
-      }
-      
-      if (error.response?.status === 503) {
-        return res.status(503).json({
-          error: 'Skills matcher unavailable',
-          message: error.response.data?.detail || 'Skills matcher module not available. Check server logs.'
-        });
-      }
-      
-      throw error;
+      console.warn('[uploadResume] ⚠️  Skills extraction failed (classification may be incomplete):', error.message);
+      extractResponse = { 
+        data: { 
+          skills: [],
+          important_skills: [],
+          less_important_skills: [],
+          non_technical_skills: []
+        } 
+      };
     }
     
-    // Combine keywords from NLP extraction with skills from PhraseMatcher
+    // Get extracted keywords (comprehensive keyword extraction)
     const extractedKeywords = Array.isArray(keywordsResponse.data?.keywords) 
       ? keywordsResponse.data.keywords 
       : [];
     
-    // Get extracted skills with 3-section classification (normalized)
+    // Get extracted skills with 3-section classification (for classification only)
     const extractedSkills = Array.isArray(extractResponse?.data?.skills) 
       ? extractResponse.data.skills 
       : [];

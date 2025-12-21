@@ -75,16 +75,38 @@ root_logger.addHandler(SafeStreamHandler(sys.stdout))
 # Import skills matcher
 try:
     try:
-        from .skills_matcher import get_skills_database, extract_skills_with_phrasematcher
+        from .skills_matcher import (
+            get_skills_database, extract_skills_with_phrasematcher,
+            get_keywords_database, extract_keywords_with_phrasematcher,
+            SkillClassifier
+        )
     except ImportError:
         # Fallback for when running as script
-        from skills_matcher import get_skills_database, extract_skills_with_phrasematcher
+        from skills_matcher import (
+            get_skills_database, extract_skills_with_phrasematcher,
+            get_keywords_database, extract_keywords_with_phrasematcher,
+            SkillClassifier
+        )
     SKILLS_MATCHER_AVAILABLE = True
     logger.info("Skills matcher module loaded successfully")
 except ImportError as e:
     logger.warning(f"Skills matcher not available: {e}")
     logger.warning("The /extract-skills endpoint will not be available")
     SKILLS_MATCHER_AVAILABLE = False
+
+# Global classifier instance for pre-filtering
+_classifier_instance = None
+
+def get_classifier() -> Optional[SkillClassifier]:
+    """Get or create global classifier instance for pre-filtering"""
+    global _classifier_instance
+    if _classifier_instance is None and SKILLS_MATCHER_AVAILABLE:
+        try:
+            _classifier_instance = SkillClassifier()
+        except Exception as e:
+            logger.warning(f"Could not initialize classifier for pre-filtering: {e}")
+            _classifier_instance = None
+    return _classifier_instance
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -636,7 +658,27 @@ def is_generic_word(word: str, spacy_stopwords: Set[str]) -> bool:
     return False
 
 
-def extract_keywords_from_text(text: str) -> List[str]:
+def should_extract_keyword(candidate: str, classifier: Optional[SkillClassifier] = None) -> bool:
+    """
+    Pre-filter: Use embeddings to determine if keyword is relevant/extractable.
+    
+    Args:
+        candidate: Keyword candidate to check
+        classifier: Optional classifier instance (will get global if None)
+        
+    Returns:
+        True if keyword should be extracted, False otherwise
+    """
+    if classifier is None:
+        classifier = get_classifier()
+    
+    if classifier is None or not classifier.available:
+        return True  # Fallback: extract all if classifier not available
+    
+    # Use classifier to check if keyword is relevant
+    return classifier.is_relevant_keyword(candidate, threshold=0.10)
+
+def extract_keywords_from_text(text: str, use_prefiltering: bool = True) -> List[str]:
     """
     Extract relevant keywords from job description text using spaCy NLP.
     
@@ -648,6 +690,7 @@ def extract_keywords_from_text(text: str) -> List[str]:
     
     Args:
         text: Job description text
+        use_prefiltering: Whether to use classifier embeddings for pre-filtering
         
     Returns:
         List of extracted keywords, sorted by frequency and priority
@@ -656,6 +699,7 @@ def extract_keywords_from_text(text: str) -> List[str]:
     doc = nlp_model(text)
     
     spacy_stopwords = set(nlp_model.Defaults.stop_words)
+    classifier = get_classifier() if use_prefiltering else None
     
     # Frequency counter for keywords
     keyword_freq: Dict[str, int] = {}
@@ -677,6 +721,13 @@ def extract_keywords_from_text(text: str) -> List[str]:
         
         if all(is_generic_word(t, spacy_stopwords) for t in tokens):
             return
+        
+        # Pre-filter using classifier embeddings (if enabled)
+        if use_prefiltering and not is_pattern_match:
+            # Pattern matches are always extracted (high priority)
+            # For other keywords, check relevance
+            if not should_extract_keyword(normalized, classifier):
+                return
         
         # Increment frequency (give pattern matches bonus points)
         if is_pattern_match:
@@ -1419,6 +1470,81 @@ async def _extract_skills_internal(request: ExtractSkillsRequest):
             status_code=500,
             detail=f"Failed to extract skills: {str(e)}"
         )
+
+
+@app.post("/extract-resume-keywords", response_model=ExtractResponse)
+async def extract_resume_keywords(request: ExtractRequest):
+    """
+    Extract keywords from resume text using comprehensive keyword database.
+    
+    This endpoint is optimized for resume parsing - it extracts ALL relevant keywords
+    (technical, business, tools, soft skills, etc.) using a broader keyword database
+    and pre-filtering with classifier embeddings.
+    
+    Args:
+        request: ExtractRequest containing resume text
+        
+    Returns:
+        ExtractResponse with extracted keywords
+    """
+    if not SKILLS_MATCHER_AVAILABLE:
+        logger.error("Keywords matcher not available")
+        return ExtractResponse(
+            keywords=[],
+            count=0
+        )
+    
+    # Load NLP model
+    nlp_model = load_spacy_model()
+    
+    # Get keywords database (broader than skills database)
+    try:
+        logger.info("Loading keywords database for resume parsing...")
+        keywords_db = get_keywords_database()
+    except Exception as e:
+        logger.error(f"Error loading keywords database: {e}")
+        # Fallback: use NLP keyword extraction only
+        keywords = extract_keywords_from_text(request.text, use_prefiltering=True)
+        return ExtractResponse(
+            keywords=keywords,
+            count=len(keywords)
+        )
+    
+    # Extract keywords using PhraseMatcher
+    logger.info(f"Extracting keywords from resume text (length: {len(request.text)})")
+    keyword_matches = []
+    try:
+        keyword_matches = extract_keywords_with_phrasematcher(
+            request.text,
+            nlp_model,
+            keywords_db,
+            use_fuzzy=True,
+            use_context_filter=False  # Less strict for keywords
+        )
+    except Exception as e:
+        logger.warning(f"Error extracting keywords with PhraseMatcher: {e}")
+        keyword_matches = []
+    
+    # Extract unique keywords from PhraseMatcher
+    keywords_set = set()
+    for keyword, canonical, weight in keyword_matches:
+        keywords_set.add(keyword)
+    
+    # Also use NLP keyword extraction (extract_keywords_from_text) for additional keywords
+    # This catches keywords that might not be in the database
+    nlp_keywords = extract_keywords_from_text(request.text, use_prefiltering=True)
+    for keyword in nlp_keywords:
+        keywords_set.add(keyword)
+    
+    # Convert to sorted list
+    keywords = sorted(list(keywords_set), key=str.lower)
+    
+    logger.info(f"Extracted {len(keywords)} keywords from resume")
+    
+    return ExtractResponse(
+        keywords=keywords,
+        count=len(keywords)
+    )
 
 
 @app.get("/")

@@ -1190,6 +1190,80 @@ class SkillClassifier:
             logger.warning(f"⚠️  Error in fallback classification for '{skill}': {e}")
             return True
     
+    def is_relevant_keyword(self, keyword: str, threshold: float = 0.10) -> bool:
+        """
+        Check if keyword is relevant enough to extract (pre-filtering).
+        
+        More permissive than is_technical_skill() - returns True if keyword is similar
+        to ANY category (Important Tech, Less Important Tech, or Non-Tech).
+        This allows business keywords, tools, etc. to pass through.
+        Only filters out completely irrelevant terms.
+        
+        Args:
+            keyword: Keyword to check
+            threshold: Similarity threshold (lower = more permissive, default 0.10)
+            
+        Returns:
+            True if keyword is relevant/extractable, False otherwise
+        """
+        if not self.available or self.model is None:
+            return True  # Fallback: allow all if classifier not available
+        
+        try:
+            import time
+            import torch
+            from sentence_transformers import util
+            
+            start_time = time.time()
+            
+            # Encode the keyword
+            keyword_embedding = self.model.encode(keyword, convert_to_tensor=True)
+            
+            # Compute max similarity to each category
+            if self.important_tech_embeddings is not None:
+                important_sim = torch.max(util.cos_sim(keyword_embedding, self.important_tech_embeddings)).item()
+            else:
+                important_sim = 0.0
+            
+            if self.less_important_tech_embeddings is not None:
+                less_important_sim = torch.max(util.cos_sim(keyword_embedding, self.less_important_tech_embeddings)).item()
+            else:
+                less_important_sim = 0.0
+            
+            if self.non_tech_embeddings is not None:
+                non_tech_sim = torch.max(util.cos_sim(keyword_embedding, self.non_tech_embeddings)).item()
+            else:
+                non_tech_sim = 0.0
+            
+            # More permissive: keyword is relevant if it's similar to ANY category
+            # This allows business keywords, tools, soft skills, etc. to pass through
+            max_similarity = max(important_sim, less_important_sim, non_tech_sim)
+            
+            # Also check if it's a proper noun/tool name (likely relevant even if low similarity)
+            # Proper nouns (capitalized) are often tool/technology names
+            is_proper_noun = keyword and len(keyword) > 0 and keyword[0].isupper() and len(keyword) >= 2
+            
+            # Keyword is relevant if:
+            # 1. Similarity to any category is above threshold, OR
+            # 2. It's a proper noun (likely a tool/technology name)
+            is_relevant = max_similarity > threshold or (is_proper_noun and max_similarity > 0.05)
+            
+            # Update statistics
+            self.classification_count += 1
+            elapsed_ms = (time.time() - start_time) * 1000
+            self.total_time_ms += elapsed_ms
+            
+            if is_relevant:
+                self.kept_count += 1
+            else:
+                self.filtered_count += 1
+            
+            return is_relevant
+            
+        except Exception as e:
+            logger.warning(f"⚠️  Error checking keyword relevance '{keyword}': {e}")
+            return True  # Fallback: allow if classification fails
+    
     def get_stats(self) -> dict:
         """Get classification statistics"""
         avg_time = (self.total_time_ms / self.classification_count) if self.classification_count > 0 else 0
@@ -1742,14 +1816,165 @@ class SkillsDatabase:
 
 
 # Global skills database instance
-_skills_db: Optional[SkillsDatabase] = None
+class KeywordsDatabase:
+    """Manages keywords database with PhraseMatcher - more permissive than SkillsDatabase"""
+    
+    def __init__(self, csv_path: str, ontology_path: Optional[str] = None):
+        self.csv_path = csv_path
+        self.keywords: List[str] = []
+        self.keywords_lower: List[str] = []
+        self.canonical_map: Dict[str, str] = {}  # keyword -> canonical form
+        self.reverse_canonical: Dict[str, List[str]] = defaultdict(list)  # canonical -> [keywords]
+        self.keywords_dict: Dict[str, str] = {}  # normalized -> original (O(1) lookup)
+        self.ontology = SkillOntology(ontology_path) if ontology_path else None
+        self.classifier = SkillClassifier()  # Semantic keyword classifier (for pre-filtering)
+        self.loaded = False
+        
+    def load(self) -> None:
+        """Load keywords from CSV file - more permissive filtering than SkillsDatabase"""
+        if self.loaded:
+            return
+            
+        logger.info(f"Loading keywords from {self.csv_path}")
+        
+        # Log Sentence Transformers status
+        if self.classifier.available:
+            logger.info("✅ [Sentence Transformers] Classifier is available - will pre-filter keywords")
+        else:
+            logger.warning("⚠️  [Sentence Transformers] Classifier NOT available - all keywords will be loaded")
+            logger.warning("   Install with: pip install sentence-transformers torch")
+        
+        if not os.path.exists(self.csv_path):
+            raise FileNotFoundError(f"Keywords CSV not found: {self.csv_path}")
+        
+        keywords_set = set()  # Use set to avoid duplicates
+        
+        try:
+            loaded_count = 0
+            filtered_count = 0
+            total_processed = 0
+            
+            with open(self.csv_path, 'r', encoding='utf-8', errors='ignore') as f:
+                reader = csv.DictReader(f)
+                # Count total rows first for progress
+                rows = list(reader)
+                total_rows = len(rows)
+                
+                for row in rows:
+                    keyword = row.get('Keyword', '').strip()
+                    if keyword:
+                        # Clean up quotes and newlines
+                        keyword = keyword.replace('"', '').replace('\n', ' ').strip()
+                        if keyword and len(keyword) > 1:  # Skip single characters
+                            total_processed += 1
+                            
+                            # PRE-FILTER: Use is_relevant_keyword (more permissive than is_technical_skill)
+                            # This allows business keywords, tools, soft skills, etc. to pass through
+                            if self.classifier.available:
+                                # Show progress every 100 keywords or at milestones
+                                if total_processed % 100 == 0 or total_processed == total_rows:
+                                    progress_pct = (total_processed / total_rows * 100) if total_rows > 0 else 0
+                                    safe_stderr_print(f"\r🔄 Loading keywords: {total_processed}/{total_rows} ({progress_pct:.1f}%) - Kept: {loaded_count}, Filtered: {filtered_count}", end='', flush=True)
+                                
+                                # More permissive: use is_relevant_keyword (threshold 0.10)
+                                if not self.classifier.is_relevant_keyword(keyword, threshold=0.10):
+                                    filtered_count += 1
+                                    continue
+                            
+                            keywords_set.add(keyword)
+                            loaded_count += 1
+                
+                # Final progress update
+                if self.classifier.available and total_processed > 0:
+                    safe_stderr_print(f"\r✅ Loaded keywords: {loaded_count} kept, {filtered_count} filtered from {total_processed} total", flush=True)
+            
+            if self.classifier.available:
+                stats = self.classifier.get_stats()
+                logger.info("=" * 60)
+                logger.info("📊 Sentence Transformers Keyword Pre-filtering Stats")
+                logger.info("=" * 60)
+                logger.info(f"   Total classifications: {stats['classifications']}")
+                logger.info(f"   ✅ Kept (relevant): {stats['kept']}")
+                logger.info(f"   🚫 Filtered (irrelevant): {stats['filtered']}")
+                logger.info(f"   Filter rate: {stats['filter_rate']:.1f}%")
+                logger.info(f"   Total time: {stats['total_time_ms']:.0f}ms")
+                logger.info(f"   Avg time per keyword: {stats['avg_time_ms']:.2f}ms")
+                logger.info("=" * 60)
+        except Exception as e:
+            logger.error(f"Error reading CSV: {e}")
+            raise
+        
+        self.keywords = sorted(list(keywords_set))
+        self.keywords_lower = [k.lower() for k in self.keywords]
+        
+        # Build canonical map and reverse lookup (reuse SkillsDatabase logic)
+        for keyword in self.keywords:
+            keyword_lower = keyword.lower()
+            canonical = self._get_canonical(keyword_lower)
+            self.canonical_map[keyword_lower] = canonical
+            self.reverse_canonical[canonical].append(keyword)
+            
+            # Build O(1) lookup dict (normalized -> original)
+            normalized = self._normalize(keyword_lower)
+            if normalized not in self.keywords_dict:
+                self.keywords_dict[normalized] = keyword
+        
+        self.loaded = True
+        logger.info(f"Loaded {len(self.keywords)} unique keywords")
+        logger.info(f"Canonical forms: {len(self.reverse_canonical)}")
+    
+    def _normalize(self, text: str) -> str:
+        """Normalize text for matching (remove spaces, special chars)"""
+        return re.sub(r'[^a-z0-9]', '', text.lower())
+    
+    def _get_canonical(self, keyword: str) -> str:
+        """Get canonical form of a keyword (reuse SkillsDatabase logic)"""
+        keyword_lower = keyword.lower().strip()
+        
+        # Check direct mapping (reuse CANONICAL_MAP from skills_matcher)
+        if keyword_lower in CANONICAL_MAP:
+            return CANONICAL_MAP[keyword_lower]
+        
+        # Check normalized mapping
+        normalized = self._normalize(keyword_lower)
+        if normalized in CANONICAL_MAP:
+            return CANONICAL_MAP[normalized]
+        
+        # Use ontology if available
+        if self.ontology:
+            canonical = self.ontology.get_canonical(keyword_lower)
+            if canonical:
+                return canonical
+        
+        # Default: return normalized form
+        return normalized
+    
+    def get_canonical_keyword(self, keyword: str) -> Optional[str]:
+        """Get canonical form of a keyword"""
+        keyword_lower = keyword.lower().strip()
+        
+        # Check direct mapping
+        if keyword_lower in self.canonical_map:
+            return self.canonical_map[keyword_lower]
+        
+        # Check normalized
+        normalized = self._normalize(keyword_lower)
+        if normalized in self.keywords_dict:
+            original = self.keywords_dict[normalized]
+            return self.canonical_map.get(original.lower(), original)
+        
+        return None
 
+
+# Global instances
+_skills_db_instance: Optional[SkillsDatabase] = None
+_keywords_db_instance: Optional[KeywordsDatabase] = None
 
 def get_skills_database(csv_path: Optional[str] = None) -> SkillsDatabase:
     """Get or create skills database singleton"""
-    global _skills_db
+    global _skills_db_instance
     
-    if _skills_db is None:
+    if _skills_db_instance is None:
         if csv_path is None:
             # Try multiple possible locations for skills.csv
             current_dir = Path(__file__).parent  # backend/nlp_service/
@@ -1791,18 +2016,170 @@ def get_skills_database(csv_path: Optional[str] = None) -> SkillsDatabase:
             logger.warning("   Continuing without semantic filtering...")
         safe_stderr_print("=" * 60, flush=True)
         
-        _skills_db = SkillsDatabase(csv_path_str)
-        _skills_db.load()
-        logger.info(f"Skills database loaded. Classifier available: {_skills_db.classifier.available}")
+        _skills_db_instance = SkillsDatabase(csv_path_str)
+        _skills_db_instance.load()
+        logger.info(f"Skills database loaded. Classifier available: {_skills_db_instance.classifier.available}")
     
-    return _skills_db
+    return _skills_db_instance
+
+
+def get_keywords_database(csv_path: Optional[str] = None) -> KeywordsDatabase:
+    """
+    Get or create global keywords database instance.
+    
+    Args:
+        csv_path: Optional path to keywords CSV (defaults to keywords.csv in nlp_service directory)
+        
+    Returns:
+        KeywordsDatabase instance
+    """
+    global _keywords_db_instance
+    
+    if _keywords_db_instance is not None:
+        return _keywords_db_instance
+    
+    # Determine CSV path
+    if csv_path is None:
+        # Try to find keywords.csv in nlp_service directory
+        script_dir = Path(__file__).parent
+        csv_path = script_dir / "keywords.csv"
+        
+        # Fallback: try skills.csv location if keywords.csv doesn't exist
+        if not csv_path.exists():
+            csv_path = script_dir / "skills.csv"
+    
+    # Try to find ontology
+    script_dir = Path(__file__).parent
+    ontology_path = script_dir / "skill_ontology.json"
+    if not ontology_path.exists():
+        ontology_path = script_dir.parent / "src" / "utils" / "skill_ontology.json"
+        if not ontology_path.exists():
+            ontology_path = None
+    
+    csv_path_str = str(csv_path)
+    ontology_path_str = str(ontology_path) if ontology_path else None
+    
+    _keywords_db_instance = KeywordsDatabase(csv_path_str, ontology_path_str)
+    return _keywords_db_instance
+
+
+# ============================================================================
+# Keyword Extraction with PhraseMatcher
+# ============================================================================
+
+def extract_keywords_with_phrasematcher(
+    text: str,
+    nlp_model,
+    keywords_db: KeywordsDatabase,
+    use_fuzzy: bool = True,
+    use_context_filter: bool = False  # Less strict for keywords
+) -> List[Tuple[str, str, float]]:
+    """
+    Extract keywords from text using spaCy PhraseMatcher (similar to extract_skills_with_phrasematcher).
+    
+    More permissive than skill extraction - designed for comprehensive keyword extraction.
+    
+    Args:
+        text: Input text to extract keywords from
+        nlp_model: Loaded spaCy model
+        keywords_db: KeywordsDatabase instance
+        use_fuzzy: Whether to use fuzzy matching for missed keywords
+        use_context_filter: Whether to use context filtering (default False for keywords)
+    
+    Returns:
+        List of tuples: (matched_keyword, canonical_form, weight)
+    """
+    try:
+        from spacy.matcher import PhraseMatcher
+    except ImportError:
+        logger.error("spacy.matcher.PhraseMatcher not available")
+        raise ImportError("spaCy PhraseMatcher is required. Make sure spaCy is properly installed.")
+    
+    try:
+        if not keywords_db.loaded:
+            keywords_db.load()
+        
+        # Create PhraseMatcher
+        matcher = PhraseMatcher(nlp_model.vocab, attr="LOWER")
+        
+        # Add all keywords as patterns
+        patterns = [nlp_model.make_doc(keyword) for keyword in keywords_db.keywords]
+        matcher.add("KEYWORDS", patterns)
+        
+        # Process text
+        doc = nlp_model(text)
+        
+        # Find matches
+        matches = matcher(doc)
+        
+        text_lower = text.lower()
+        
+        # Extract matched keywords with frequency tracking
+        matched_keywords_data = {}
+        results = []
+        
+        # First pass: Count occurrences and collect spans for each keyword
+        for match_id, start, end in matches:
+            span = doc[start:end]
+            matched_text = span.text.strip()
+            matched_lower = matched_text.lower()
+            
+            # Track frequency
+            if matched_lower not in matched_keywords_data:
+                matched_keywords_data[matched_lower] = {
+                    'text': matched_text,
+                    'frequency': 0,
+                    'spans': []
+                }
+            matched_keywords_data[matched_lower]['frequency'] += 1
+            matched_keywords_data[matched_lower]['spans'].append(span)
+        
+        # Second pass: Process each unique keyword
+        for matched_lower, data in matched_keywords_data.items():
+            matched_text = data['text']
+            frequency = data['frequency']
+            
+            # Get canonical keyword name
+            canonical_keyword = keywords_db.get_canonical_keyword(matched_text)
+            keyword_name = canonical_keyword if canonical_keyword else matched_text
+            
+            # Default weight: 1.0 for keywords (all keywords are equally important)
+            weight = 1.0
+            
+            # Boost weight based on frequency
+            frequency_boost = min((frequency - 1) * 0.5, 2.0)
+            boosted_weight = float(weight) + frequency_boost
+            
+            # Store result
+            results.append((keyword_name, matched_lower, boosted_weight))
+        
+        # Collapse overlapping keywords (reuse logic from skills)
+        # Note: collapse_overlapping_skills expects SkillsDatabase, but we can pass KeywordsDatabase
+        # as it has similar structure (canonical_map, etc.)
+        results = collapse_overlapping_skills(results, keywords_db)  # Reuse function
+        
+        logger.info(f"Extracted {len(results)} keywords from text")
+        
+        return results
+    except (BrokenPipeError, OSError) as e:
+        is_broken_pipe = (
+            isinstance(e, BrokenPipeError) or 
+            (isinstance(e, OSError) and e.errno == 32)
+        )
+        if is_broken_pipe:
+            logger.warning("Broken pipe during keyword extraction, returning empty results")
+            return []
+        raise
+    except Exception as e:
+        logger.error(f"Error extracting keywords: {e}")
+        raise
 
 
 # ============================================================================
 # PhraseMatcher-based Extraction
 # ============================================================================
 
-def collapse_overlapping_skills(skills: List[Tuple[str, str, float]], skills_db: SkillsDatabase) -> List[Tuple[str, str, float]]:
+def collapse_overlapping_skills(skills: List[Tuple[str, str, float]], skills_db) -> List[Tuple[str, str, float]]:
     """
     Problem 2 Fix: Collapse overlapping skills using ontology hierarchy.
     
