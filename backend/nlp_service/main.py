@@ -209,6 +209,34 @@ def load_spacy_model():
 async def startup_event():
     """Pre-load the spaCy model and embeddings at startup to avoid delays on first request"""
     try:
+        # Verify critical dependencies are installed
+        safe_stderr_print("=" * 60, flush=True)
+        safe_stderr_print("🔍 [STARTUP] Verifying dependencies...", flush=True)
+        
+        # Check sentence-transformers
+        try:
+            import sentence_transformers
+            version = getattr(sentence_transformers, '__version__', 'unknown')
+            safe_stderr_print(f"✅ sentence-transformers installed: {version}", flush=True)
+            logger.info(f"sentence-transformers installed: {version}")
+        except ImportError as e:
+            safe_stderr_print("❌ sentence-transformers NOT installed!", flush=True)
+            safe_stderr_print(f"   Error: {e}", flush=True)
+            logger.error(f"sentence-transformers NOT installed: {e}")
+        
+        # Check torch
+        try:
+            import torch
+            version = getattr(torch, '__version__', 'unknown')
+            safe_stderr_print(f"✅ torch installed: {version}", flush=True)
+            logger.info(f"torch installed: {version}")
+        except ImportError as e:
+            safe_stderr_print("❌ torch NOT installed!", flush=True)
+            safe_stderr_print(f"   Error: {e}", flush=True)
+            logger.error(f"torch NOT installed: {e}")
+        
+        safe_stderr_print("=" * 60, flush=True)
+        
         load_spacy_model()
         logger.info("NLP service startup complete")
         
