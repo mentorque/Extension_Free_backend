@@ -724,6 +724,9 @@ class SkillClassifier:
         self.embeddings_dir.mkdir(exist_ok=True)
         self.embeddings_metadata_csv = self.embeddings_dir / "embeddings_metadata.csv"
         
+        # Log cache directory path for debugging
+        logger.info(f"Embeddings cache directory: {self.embeddings_dir.absolute()}")
+        
         if not SENTENCE_TRANSFORMERS_AVAILABLE:
             safe_stderr_print("=" * 60)
             safe_stderr_print("⚠️  [Sentence Transformers] NOT INSTALLED")
@@ -825,13 +828,14 @@ class SkillClassifier:
             except Exception:
                 self.tech_embeddings = self.important_tech_embeddings
             
-            # Load model (needed for classification)
-            from sentence_transformers import SentenceTransformer
-            # Suppress GPU messages
-            import warnings
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+            # Load model (needed for classification) - only if not already loaded
+            if self.model is None:
+                from sentence_transformers import SentenceTransformer
+                # Suppress GPU messages
+                import warnings
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
             
             # Read metadata CSV
             import csv
@@ -887,185 +891,6 @@ class SkillClassifier:
         except Exception as e:
             logger.error(f"Failed to save embeddings to cache: {e}")
             raise
-            
-            # Keep technical_examples for backwards compatibility (combined)
-            self.technical_examples = self.important_tech_examples + self.less_important_tech_examples
-            
-            # Non-technical exemplars (expanded with job posting terms)
-            self.non_technical_examples = [
-                # Soft skills
-                "productivity", "feedback", "customer", "player",
-                "improvement", "learning", "transformation", "reviews",
-                "transparency", "working from home", "responsiveness",
-                "collaboration", "team player", "communication",
-                "leadership", "management", "development center",
-                "pregnancy", "religion", "color", "cooperation",
-                "research", "rocket", "start-up", "yarn", "it", "digital",
-                # Insurance and financial terms (NOT technical skills)
-                "term life insurance", "life insurance", "health insurance",
-                "disability insurance", "insurance", "value proposition",
-                "credit", "craft",
-                # Job posting/HR terms (NOT technical skills)
-                "engineering", "hiring", "open source", "resume", "root", "root cause",
-                "scratch", "screening", "start to finish", "notice period",
-                "opportunity", "placement", "salary", "competitive", "apply",
-                "interview", "client", "talent", "career", "challenge",
-                "work environment", "portal", "register", "login", "upload",
-                "shortlisted", "meet", "waiting", "ready", "today", "step",
-                "process", "click", "form", "chances", "progress", "goal",
-                "reliable", "simple", "fast", "relevant", "great fit",
-                "part", "founding", "team", "building", "consumer", "payments",
-                "platform", "grounds", "own", "end to end", "responsibility",
-                "deployment", "monitoring", "develop", "features", "working",
-                "distributed", "environment", "handle", "million", "customers",
-                "millisecond", "latencies", "dive", "details", "issues",
-                "incidents", "outages", "analyze", "prepare", "reports",
-                "solving", "real", "business", "needs", "large scale",
-                "consumer-tech", "saas", "startup", "built", "systems",
-                "before", "years", "containers", "designing", "services",
-                "caching", "realtime", "ensuring", "whatever", "build",
-                "deploy", "start", "finish", "top-notch", "quality", "enjoy",
-                "products", "joining", "early", "stage", "involves", "more",
-                "than", "just", "developing", "app", "often", "chaotic",
-                "environments", "involved", "decisions", "well", "leverage",
-                "faster", "need", "able", "collaborate", "design", "teams",
-                "within", "constraints", "understand", "companies", "make",
-                "correct", "tradeoffs", "between", "time", "speed", "features",
-                "whenever", "required", "love", "give", "back", "community",
-                "through", "blogging", "mentoring", "contributing", "fintech",
-                "industry", "around", "big", "plus", "easy", "register",
-                "updated", "complete", "increase", "get", "meet", "for",
-                "about", "make", "getting", "hired", "role", "help", "all",
-                "our", "talents", "find", "progress", "their", "note",
-                "there", "are", "many", "more", "opportunities", "apart",
-                "from", "this", "on", "so", "you", "are", "ready", "new",
-                "environment", "take", "your", "next", "level", "don't",
-                "hesitate", "today", "we", "waiting", "for", "you"
-            ]
-            
-            # All computation code removed - server only loads from cache
-        except Exception as e:
-            error_msg = f"❌ Failed to initialize skill classifier: {e}"
-            error_type = type(e).__name__
-            safe_stderr_print("=" * 60, flush=True)
-            safe_stderr_print(error_msg, flush=True)
-            safe_stderr_print(f"   Error type: {error_type}", flush=True)
-            safe_stderr_print("=" * 60, flush=True)
-            logger.error(error_msg)
-            logger.error(f"   Error type: {error_type}")
-            import traceback
-            traceback_str = traceback.format_exc()
-            logger.error(f"   Traceback: {traceback_str}")
-            safe_stderr_print(f"   Traceback: {traceback_str}", flush=True)
-            self.model = None
-            self.available = False
-            # Still try to set embeddings to None explicitly
-            self.important_tech_embeddings = None
-            self.less_important_tech_embeddings = None
-            self.non_tech_embeddings = None
-            self.tech_embeddings = None
-    
-    def _load_embeddings_from_cache(self) -> bool:
-        """Load embeddings from cache files. Returns True if successful."""
-        try:
-            import numpy as np
-            import torch
-            
-            important_tech_path = self.embeddings_dir / "important_tech_embeddings.npy"
-            less_important_tech_path = self.embeddings_dir / "less_important_tech_embeddings.npy"
-            non_tech_path = self.embeddings_dir / "non_tech_embeddings.npy"
-            metadata_path = self.embeddings_metadata_csv
-            
-            # Check if all files exist
-            if not (important_tech_path.exists() and less_important_tech_path.exists() and 
-                    non_tech_path.exists() and metadata_path.exists()):
-                return False
-            
-            # Load embeddings from numpy files
-            important_tech_array = np.load(important_tech_path)
-            less_important_tech_array = np.load(less_important_tech_path)
-            non_tech_array = np.load(non_tech_path)
-            
-            # Convert to torch tensors
-            self.important_tech_embeddings = torch.from_numpy(important_tech_array)
-            self.less_important_tech_embeddings = torch.from_numpy(less_important_tech_array)
-            self.non_tech_embeddings = torch.from_numpy(non_tech_array)
-            
-            # Create combined tech embeddings
-            try:
-                self.tech_embeddings = torch.cat([self.important_tech_embeddings, self.less_important_tech_embeddings], dim=0)
-            except Exception:
-                self.tech_embeddings = self.important_tech_embeddings
-            
-            # Load model (needed for classification)
-            from sentence_transformers import SentenceTransformer
-            # Suppress GPU messages
-            import warnings
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
-            
-            # Read metadata CSV
-            import csv
-            with open(metadata_path, 'r') as f:
-                reader = csv.DictReader(f)
-                metadata = next(reader, None)
-                if metadata:
-                    logger.info(f"Loaded embeddings cache created on: {metadata.get('created_date', 'unknown')}")
-                    logger.info(f"Important Tech: {metadata.get('important_tech_count', 'unknown')} examples")
-                    logger.info(f"Less Important Tech: {metadata.get('less_important_tech_count', 'unknown')} examples")
-                    logger.info(f"Non-Tech: {metadata.get('non_tech_count', 'unknown')} examples")
-            
-            return True
-        except Exception as e:
-            logger.warning(f"Failed to load embeddings from cache: {e}")
-            return False
-    
-    def _save_embeddings_to_cache(self) -> None:
-        """Save embeddings to cache files for future use."""
-        try:
-            import numpy as np
-            import torch
-            from datetime import datetime
-            import csv
-            
-            if (self.important_tech_embeddings is None or 
-                self.less_important_tech_embeddings is None or 
-                self.non_tech_embeddings is None):
-                logger.warning("Cannot save embeddings: some embeddings are None")
-                return
-            
-            # Convert torch tensors to numpy arrays and save
-            important_tech_array = self.important_tech_embeddings.cpu().numpy()
-            less_important_tech_array = self.less_important_tech_embeddings.cpu().numpy()
-            non_tech_array = self.non_tech_embeddings.cpu().numpy()
-            
-            np.save(self.embeddings_dir / "important_tech_embeddings.npy", important_tech_array)
-            np.save(self.embeddings_dir / "less_important_tech_embeddings.npy", less_important_tech_array)
-            np.save(self.embeddings_dir / "non_tech_embeddings.npy", non_tech_array)
-            
-            # Save metadata to CSV
-            metadata = {
-                'created_date': datetime.now().isoformat(),
-                'important_tech_count': len(self.important_tech_examples),
-                'less_important_tech_count': len(self.less_important_tech_examples),
-                'non_tech_count': len(self.non_technical_examples),
-                'important_tech_shape': str(important_tech_array.shape),
-                'less_important_tech_shape': str(less_important_tech_array.shape),
-                'non_tech_shape': str(non_tech_array.shape)
-            }
-            
-            # Write CSV (create if doesn't exist, overwrite if exists)
-            with open(self.embeddings_metadata_csv, 'w', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=metadata.keys())
-                writer.writeheader()
-                writer.writerow(metadata)
-            
-            logger.info(f"Saved embeddings to {self.embeddings_dir}")
-        except Exception as e:
-            logger.error(f"Failed to save embeddings to cache: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
     
     def is_technical_skill(self, skill: str, threshold: float = 0.15) -> bool:
         """
