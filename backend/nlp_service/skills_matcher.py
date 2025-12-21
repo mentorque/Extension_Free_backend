@@ -753,54 +753,146 @@ class SkillClassifier:
             
             start_time = time.time()
             
-            # Try to load cached embeddings first (pre-computed on laptop)
+            # ONLY load from cache - NEVER compute on server
+            # Embeddings must be pre-computed on laptop and committed to git
             if self._load_embeddings_from_cache():
-                safe_stderr_print("✅ Loaded pre-computed embeddings from cache (no computation needed)", flush=True)
+                safe_stderr_print("✅ Loaded pre-computed embeddings from cache", flush=True)
                 logger.info("✅ Loaded pre-computed embeddings from cache - server skipped computation")
-                # Still need to load model for classification (but embeddings are already computed)
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
-                    logger.info("✅ Model loaded for classification (embeddings already cached)")
-                except Exception as e:
-                    logger.warning(f"Could not load model for classification: {e}")
-                    self.model = None
                 return
-            
-            # Load lightweight model (60MB, fast inference)
-            safe_stderr_print("=" * 60)
-            safe_stderr_print("🤖 Initializing Sentence Transformers (model: all-MiniLM-L6-v2, ~60MB)...", flush=True)
-            logger.info("=" * 60)
-            logger.info("🤖 Initializing Sentence Transformers Classifier")
-            logger.info("=" * 60)
-            logger.info("📦 Loading model: all-MiniLM-L6-v2")
-            logger.info("   (This will download ~60MB on first run)")
-            
-            safe_stderr_print("\r⏳ Loading model (30-60s on first run)...", end='', flush=True)
-            try:
-                # Suppress all warnings during model loading
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    # Force CPU device to avoid GPU messages
-                    self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
-            except (BrokenPipeError, OSError) as e:
-                # Handle broken pipe during model loading
-                if isinstance(e, OSError) and e.errno != 32:
-                    raise  # Re-raise if not broken pipe
-                # For broken pipe, disable classifier
-                logger.warning("Broken pipe during model loading, disabling classifier")
+            else:
+                # Cache not found - disable classifier (don't compute on server)
+                error_msg = "❌ Embeddings cache not found - pre-compute on laptop and commit to git"
+                safe_stderr_print(error_msg, flush=True)
+                logger.error(error_msg)
+                logger.error("   Run: cd backend/nlp_service && python3 precompute_embeddings.py")
+                logger.error("   Then commit the .npy files to git")
                 self.model = None
                 self.available = False
+                self.important_tech_embeddings = None
+                self.less_important_tech_embeddings = None
+                self.non_tech_embeddings = None
+                self.tech_embeddings = None
                 return
-            model_load_time = (time.time() - start_time) * 1000
-            safe_stderr_print(f"\r✅ Model loaded in {model_load_time:.0f}ms", flush=True)
-            logger.info(f"✅ Model loaded in {model_load_time:.0f}ms")
             
-            # Important Technical skill exemplars (Core languages, major frameworks, important tools - High priority)
-            self.important_tech_examples = [
-                # Core Programming Languages
-                "Python", "JavaScript", "TypeScript", "Java", "C++", "C#", ".NET",
+            # All embedding computation code removed - server only loads from cache
+            # Embeddings must be pre-computed on laptop using precompute_embeddings.py
+            # If cache is not found, classifier is disabled (no computation on server)
+            # This code path should never be reached if cache loading works correctly
+            pass
+            error_msg = f"❌ Failed to initialize skill classifier: {e}"
+            error_type = type(e).__name__
+            safe_stderr_print("=" * 60, flush=True)
+            safe_stderr_print(error_msg, flush=True)
+            safe_stderr_print(f"   Error type: {error_type}", flush=True)
+            safe_stderr_print("=" * 60, flush=True)
+            logger.error(error_msg)
+            logger.error(f"   Error type: {error_type}")
+            import traceback
+            traceback_str = traceback.format_exc()
+            logger.error(f"   Traceback: {traceback_str}")
+            safe_stderr_print(f"   Traceback: {traceback_str}", flush=True)
+            self.model = None
+            self.available = False
+            # Still try to set embeddings to None explicitly
+            self.important_tech_embeddings = None
+            self.less_important_tech_embeddings = None
+            self.non_tech_embeddings = None
+            self.tech_embeddings = None
+    
+    def _load_embeddings_from_cache(self) -> bool:
+        """Load embeddings from cache files. Returns True if successful."""
+        try:
+            import numpy as np
+            import torch
+            
+            important_tech_path = self.embeddings_dir / "important_tech_embeddings.npy"
+            less_important_tech_path = self.embeddings_dir / "less_important_tech_embeddings.npy"
+            non_tech_path = self.embeddings_dir / "non_tech_embeddings.npy"
+            metadata_path = self.embeddings_metadata_csv
+            
+            # Check if all files exist
+            if not (important_tech_path.exists() and less_important_tech_path.exists() and 
+                    non_tech_path.exists() and metadata_path.exists()):
+                return False
+            
+            # Load embeddings from numpy files
+            important_tech_array = np.load(important_tech_path)
+            less_important_tech_array = np.load(less_important_tech_path)
+            non_tech_array = np.load(non_tech_path)
+            
+            # Convert to torch tensors
+            self.important_tech_embeddings = torch.from_numpy(important_tech_array)
+            self.less_important_tech_embeddings = torch.from_numpy(less_important_tech_array)
+            self.non_tech_embeddings = torch.from_numpy(non_tech_array)
+            
+            # Create combined tech embeddings
+            try:
+                self.tech_embeddings = torch.cat([self.important_tech_embeddings, self.less_important_tech_embeddings], dim=0)
+            except Exception:
+                self.tech_embeddings = self.important_tech_embeddings
+            
+            # Load model (needed for classification)
+            from sentence_transformers import SentenceTransformer
+            # Suppress GPU messages
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+            
+            # Read metadata CSV
+            import csv
+            with open(metadata_path, 'r') as f:
+                reader = csv.DictReader(f)
+                metadata = next(reader, None)
+                if metadata:
+                    logger.info(f"Loaded embeddings cache created on: {metadata.get('created_date', 'unknown')}")
+                    logger.info(f"Important Tech: {metadata.get('important_tech_count', 'unknown')} examples")
+                    logger.info(f"Less Important Tech: {metadata.get('less_important_tech_count', 'unknown')} examples")
+                    logger.info(f"Non-Tech: {metadata.get('non_tech_count', 'unknown')} examples")
+            
+            logger.info("✅ Loaded embeddings from cache")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to load embeddings from cache: {e}")
+            return False
+    
+    def _save_embeddings_to_cache(self) -> None:
+        """Save embeddings to cache files (only used by precompute_embeddings.py)."""
+        # This method is only used by precompute_embeddings.py on laptop
+        # Server never calls this - it only loads from cache
+        try:
+            import numpy as np
+            import csv
+            from datetime import datetime
+            
+            # Create cache directory if it doesn't exist
+            self.embeddings_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Save embeddings as numpy arrays
+            if self.important_tech_embeddings is not None:
+                np.save(self.embeddings_dir / "important_tech_embeddings.npy", 
+                       self.important_tech_embeddings.cpu().numpy())
+            if self.less_important_tech_embeddings is not None:
+                np.save(self.embeddings_dir / "less_important_tech_embeddings.npy", 
+                       self.less_important_tech_embeddings.cpu().numpy())
+            if self.non_tech_embeddings is not None:
+                np.save(self.embeddings_dir / "non_tech_embeddings.npy", 
+                       self.non_tech_embeddings.cpu().numpy())
+            
+            # Save metadata CSV
+            with open(self.embeddings_metadata_csv, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=['created_date', 'important_tech_count', 
+                                                         'less_important_tech_count', 'non_tech_count'])
+                writer.writeheader()
+                writer.writerow({
+                    'created_date': datetime.now().isoformat(),
+                    'important_tech_count': len(self.important_tech_examples) if hasattr(self, 'important_tech_examples') else 0,
+                    'less_important_tech_count': len(self.less_important_tech_examples) if hasattr(self, 'less_important_tech_examples') else 0,
+                    'non_tech_count': len(self.non_technical_examples) if hasattr(self, 'non_technical_examples') else 0
+                })
+        except Exception as e:
+            logger.error(f"Failed to save embeddings to cache: {e}")
+            raise
                 "Go", "Rust", "Kotlin", "Swift", "Scala", "Ruby", "PHP", "R",
                 # Major Frontend Frameworks
                 "React", "Angular", "Vue.js", "Next.js", "Svelte",
@@ -900,172 +992,7 @@ class SkillClassifier:
                 "hesitate", "today", "we", "waiting", "for", "you"
             ]
             
-            # Pre-compute embeddings (once at startup) - Three categories
-            total_examples = len(self.important_tech_examples) + len(self.less_important_tech_examples) + len(self.non_technical_examples)
-            logger.info(f"🔄 Pre-computing embeddings: {total_examples} total examples across 3 categories")
-            
-            # Verify model is available before starting
-            if self.model is None:
-                error_msg = "❌ Model is None - cannot compute embeddings"
-                safe_stderr_print(f"\r{error_msg}", flush=True)
-                logger.error(error_msg)
-                self.available = False
-                return
-            
-            embed_start = time.time()
-            
-            # Compute Important Tech embeddings (Section 1)
-            try:
-                safe_stderr_print(f"\r🔄 Computing embeddings: 1/3 (33%) - Important Tech ({len(self.important_tech_examples)} examples)...", end='', flush=True)
-                logger.info("Computing Important Tech embeddings...")
-                self.important_tech_embeddings = self.model.encode(
-                    self.important_tech_examples,
-                    convert_to_tensor=True,
-                    show_progress_bar=False
-                )
-                # Verify embeddings were computed
-                if self.important_tech_embeddings is None:
-                    raise ValueError("Important tech embeddings returned None")
-                important_tech_time = (time.time() - embed_start) * 1000
-                logger.info(f"✅ Important Tech embeddings computed in {important_tech_time:.0f}ms")
-            except (BrokenPipeError, OSError) as e:
-                if isinstance(e, OSError) and e.errno != 32:
-                    raise
-                safe_stderr_print(f"\r❌ Error: Broken pipe during Important Tech embedding computation", flush=True)
-                logger.warning("Broken pipe during Important Tech embedding computation")
-                self.important_tech_embeddings = None
-            except Exception as e:
-                safe_stderr_print(f"\r❌ Error computing Important Tech embeddings: {e}", flush=True)
-                logger.error(f"Error computing Important Tech embeddings: {e}")
-                import traceback
-                logger.error(f"Traceback: {traceback.format_exc()}")
-                self.important_tech_embeddings = None
-            
-            # Compute Less Important Tech embeddings (Section 2)
-            try:
-                less_important_start = time.time()
-                safe_stderr_print(f"\r🔄 Computing embeddings: 2/3 (67%) - Less Important Tech ({len(self.less_important_tech_examples)} examples)...", end='', flush=True)
-                logger.info("Computing Less Important Tech embeddings...")
-                self.less_important_tech_embeddings = self.model.encode(
-                    self.less_important_tech_examples,
-                    convert_to_tensor=True,
-                    show_progress_bar=False
-                )
-                # Verify embeddings were computed
-                if self.less_important_tech_embeddings is None:
-                    raise ValueError("Less important tech embeddings returned None")
-                less_important_time = (time.time() - less_important_start) * 1000
-                logger.info(f"✅ Less Important Tech embeddings computed in {less_important_time:.0f}ms")
-            except (BrokenPipeError, OSError) as e:
-                if isinstance(e, OSError) and e.errno != 32:
-                    raise
-                safe_stderr_print(f"\r❌ Error: Broken pipe during Less Important Tech embedding computation", flush=True)
-                logger.warning("Broken pipe during Less Important Tech embedding computation")
-                self.less_important_tech_embeddings = None
-            except Exception as e:
-                safe_stderr_print(f"\r❌ Error computing Less Important Tech embeddings: {e}", flush=True)
-                logger.error(f"Error computing Less Important Tech embeddings: {e}")
-                import traceback
-                logger.error(f"Traceback: {traceback.format_exc()}")
-                self.less_important_tech_embeddings = None
-            
-            # Compute Non-Tech embeddings (Section 3)
-            try:
-                non_tech_start = time.time()
-                safe_stderr_print(f"\r🔄 Computing embeddings: 3/3 (100%) - Non-Tech ({len(self.non_technical_examples)} examples)...", end='', flush=True)
-                logger.info("Computing Non-Tech embeddings...")
-                self.non_tech_embeddings = self.model.encode(
-                    self.non_technical_examples,
-                    convert_to_tensor=True,
-                    show_progress_bar=False
-                )
-                # Verify embeddings were computed
-                if self.non_tech_embeddings is None:
-                    raise ValueError("Non-tech embeddings returned None")
-                non_tech_time = (time.time() - non_tech_start) * 1000
-                logger.info(f"✅ Non-Tech embeddings computed in {non_tech_time:.0f}ms")
-            except (BrokenPipeError, OSError) as e:
-                if isinstance(e, OSError) and e.errno != 32:
-                    raise
-                safe_stderr_print(f"\r❌ Error: Broken pipe during Non-Tech embedding computation", flush=True)
-                logger.warning("Broken pipe during Non-Tech embedding computation")
-                self.non_tech_embeddings = None
-            except Exception as e:
-                safe_stderr_print(f"\r❌ Error computing Non-Tech embeddings: {e}", flush=True)
-                logger.error(f"Error computing Non-Tech embeddings: {e}")
-                import traceback
-                logger.error(f"Traceback: {traceback.format_exc()}")
-                self.non_tech_embeddings = None
-            
-            # Create combined tech embeddings for backwards compatibility
-            if self.important_tech_embeddings is not None and self.less_important_tech_embeddings is not None:
-                try:
-                    import torch
-                    self.tech_embeddings = torch.cat([self.important_tech_embeddings, self.less_important_tech_embeddings], dim=0)
-                except Exception as e:
-                    logger.warning(f"Could not combine tech embeddings: {e}")
-                    self.tech_embeddings = self.important_tech_embeddings  # Fallback to important only
-            elif self.important_tech_embeddings is not None:
-                self.tech_embeddings = self.important_tech_embeddings
-            elif self.less_important_tech_embeddings is not None:
-                self.tech_embeddings = self.less_important_tech_embeddings
-            else:
-                self.tech_embeddings = None
-            
-            # Verify embeddings were computed - be more lenient, only disable if ALL fail
-            failed_sections = []
-            if self.important_tech_embeddings is None:
-                failed_sections.append("Important Tech")
-            if self.less_important_tech_embeddings is None:
-                failed_sections.append("Less Important Tech")
-            if self.non_tech_embeddings is None:
-                failed_sections.append("Non-Tech")
-            
-            if len(failed_sections) == 3:
-                # All embeddings failed - disable classifier
-                error_msg = "❌ Failed to compute ALL embeddings - disabling classifier"
-                safe_stderr_print(f"   {error_msg}", flush=True)
-                logger.error(error_msg)
-                self.model = None
-                self.available = False
-                return
-            elif len(failed_sections) > 0:
-                # Some embeddings failed - warn but continue
-                warning_msg = f"⚠️  Some embeddings failed to compute: {', '.join(failed_sections)}. Continuing with available embeddings."
-                safe_stderr_print(f"   {warning_msg}", flush=True)
-                logger.warning(warning_msg)
-                # Try to use what we have - if important tech is missing, use less important as fallback
-                if self.important_tech_embeddings is None and self.less_important_tech_embeddings is not None:
-                    self.important_tech_embeddings = self.less_important_tech_embeddings
-                    safe_stderr_print("   ℹ️  Using Less Important Tech embeddings as fallback for Important Tech", flush=True)
-                # If non-tech is missing, create a dummy embedding (zeros) to prevent crashes
-                if self.non_tech_embeddings is None:
-                    try:
-                        import torch
-                        # Create a dummy embedding with same dimensions as tech embeddings
-                        if self.important_tech_embeddings is not None:
-                            dummy_shape = self.important_tech_embeddings.shape
-                            self.non_tech_embeddings = torch.zeros((1, dummy_shape[1]), device=self.important_tech_embeddings.device)
-                            safe_stderr_print("   ℹ️  Created dummy Non-Tech embeddings to prevent crashes", flush=True)
-                    except Exception as e:
-                        logger.warning(f"Could not create dummy non-tech embeddings: {e}")
-            
-            embed_time = (time.time() - embed_start) * 1000
-            total_init_time = (time.time() - start_time) * 1000
-            safe_stderr_print(f"\r✅ Embeddings computed: 3/3 (100%) - Completed in {embed_time:.0f}ms", flush=True)
-            
-            # Save embeddings to cache for future use
-            try:
-                self._save_embeddings_to_cache()
-                safe_stderr_print("💾 Saved embeddings to cache", flush=True)
-                logger.info("💾 Saved embeddings to cache")
-            except Exception as e:
-                logger.warning(f"Failed to save embeddings to cache: {e}")
-            
-            safe_stderr_print(f"\r✅ Skill classifier ready (total init: {total_init_time:.0f}ms)", flush=True)
-            logger.info(f"✅ All 3 embedding sections computed successfully in {embed_time:.0f}ms")
-            logger.info(f"✅ Skill classifier ready (total init: {total_init_time:.0f}ms)")
-            logger.info("=" * 60)
+            # All computation code removed - server only loads from cache
         except Exception as e:
             error_msg = f"❌ Failed to initialize skill classifier: {e}"
             error_type = type(e).__name__
