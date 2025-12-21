@@ -1825,7 +1825,7 @@ def get_skills_database(csv_path: Optional[str] = None) -> SkillsDatabase:
             
             # Option 2: In parent src/utils (for local development)
             if not csv_path.exists():
-            csv_path = current_dir.parent / "src" / "utils" / "skills.csv"
+                csv_path = current_dir.parent / "src" / "utils" / "skills.csv"
             
             # Option 3: Absolute path fallback (if Railway sets a different structure)
             if not csv_path.exists():
