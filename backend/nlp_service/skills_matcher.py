@@ -2142,9 +2142,7 @@ def extract_skills_with_phrasematcher(
             matched_text = span.text.strip()
             matched_lower = matched_text.lower()
         
-            # Debug: Log when we find "spring boot" or related terms
-            if "spring" in matched_lower or "boot" in matched_lower:
-                safe_stderr_print(f"[EMBEDDINGS] 🔍 Found potential Spring Boot match: '{matched_text}' (lower: '{matched_lower}')", flush=True)
+            # Removed verbose debug logging
         
             # Track frequency and store first occurrence text and spans
             if matched_lower not in matched_skills_data:
@@ -2168,14 +2166,11 @@ def extract_skills_with_phrasematcher(
             # Only falls back to rule-based filters if classifier unavailable
             is_technical = True  # Default to True if classifier unavailable
             if skills_db.classifier.available:
-                # Log that we're using embeddings for this check - flush immediately for Node.js
-                safe_stderr_print(f"[EMBEDDINGS] 🔍 Checking: '{matched_text}'", flush=True)
+                # Removed verbose per-skill logging during extraction
                 is_technical = skills_db.classifier.is_technical_skill(matched_text, threshold=0.10)  # Lowered threshold from 0.15 to 0.10
                 if not is_technical:
                     garbage_count += 1
-                    safe_stderr_print(f"[EMBEDDINGS] 🚫 Filtered: '{matched_text}' (non-technical)", flush=True)
                     continue
-                safe_stderr_print(f"[EMBEDDINGS] ✅ Kept: '{matched_text}' (technical)", flush=True)
         
             # Context Filtering (Option 2): Check if match appears in skill-relevant context
             # BUT: If semantic classifier says it's technical, be more lenient with context
@@ -2187,13 +2182,11 @@ def extract_skills_with_phrasematcher(
                 if not has_context and not is_technical:
                     # Only filter if BOTH: no context AND classifier says non-technical (or unavailable)
                     context_filtered += 1
-                    safe_stderr_print(f"[EMBEDDINGS] 🚫 Context filtered: '{matched_text}' (no skill context)", flush=True)
                     garbage_count += 1
                     logger.debug(f"Filtering skill without context: {matched_text}")
                     continue
         
-            # Log when we find a match (after passing filters)
-            safe_stderr_print(f"[EMBEDDINGS] ✅ Matched: '{matched_text}' (passing all checks)", flush=True)
+            # Removed verbose per-match logging
         
             # If classifier is NOT available, use rule-based filters
             if not skills_db.classifier.available:
