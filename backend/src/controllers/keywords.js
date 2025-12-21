@@ -18,7 +18,7 @@ const Fuse = require('fuse.js');
 const NLP_SERVICE_URL = process.env.NLP_SERVICE_URL || 'http://127.0.0.1:8001';
 const NLP_SERVICE_PORT = new URL(NLP_SERVICE_URL).port || '8001';
 const NLP_SERVICE_TIMEOUT = parseInt(process.env.NLP_SERVICE_TIMEOUT) || 120000; // 2 minutes (allows time for model download)
-const HEALTH_CHECK_TIMEOUT = parseInt(process.env.HEALTH_CHECK_TIMEOUT) || 60000; // 60 seconds (allows time for Sentence Transformers model download on first run)
+const HEALTH_CHECK_TIMEOUT = parseInt(process.env.HEALTH_CHECK_TIMEOUT) || 120000; // 120 seconds (allows time for Sentence Transformers model download on first run)
 const MAX_PRESENT_SKILLS = 15; // Maximum number of present skills to show
 
 /**
@@ -434,11 +434,13 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT
   const normalizedUrl = normalizeUrl(serviceUrl);
   const healthUrl = `${normalizedUrl}/health`;
   
+  console.log(`[NLP Service] 🔍 Health check URL: ${healthUrl}`);
+  
   while (Date.now() - startTime < timeoutMs) {
     attemptCount++;
     try {
       const response = await axios.get(healthUrl, { 
-        timeout: 2000,
+        timeout: 5000, // Increased timeout for each request
         validateStatus: (status) => status === 200
       });
       
@@ -449,12 +451,23 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT
           console.log(`[NLP Service]   Model: ${response.data.model_name || 'en_core_web_sm'}`);
         }
         return true;
+      } else {
+        // Log unexpected response
+        if (attemptCount % 10 === 0) {
+          console.log(`[NLP Service] ⚠️  Unexpected health response:`, {
+            status: response.status,
+            data: response.data
+          });
+        }
       }
     } catch (error) {
       // Service not ready yet, continue polling
-      if (attemptCount % 5 === 0) {
+      if (attemptCount % 10 === 0) {
         const elapsed = Date.now() - startTime;
-        console.log(`[NLP Service] ⏳ Still waiting... (attempt ${attemptCount}, ${elapsed}ms elapsed)`);
+        const errorMsg = error.response 
+          ? `Status ${error.response.status}: ${JSON.stringify(error.response.data)}`
+          : error.code || error.message;
+        console.log(`[NLP Service] ⏳ Still waiting... (attempt ${attemptCount}, ${elapsed}ms elapsed, error: ${errorMsg})`);
       }
     }
     
@@ -463,6 +476,7 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT
   
   const elapsed = Date.now() - startTime;
   console.log(`[NLP Service] ❌ Health check timeout after ${attemptCount} attempts (${elapsed}ms)`);
+  console.log(`[NLP Service]   Health check URL was: ${healthUrl}`);
   return false;
 }
 
