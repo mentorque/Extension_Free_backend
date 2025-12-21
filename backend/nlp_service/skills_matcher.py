@@ -620,7 +620,7 @@ class SkillOntology:
             
             # Option 2: In parent src/utils (for local development)
             if not ontology_path.exists():
-            ontology_path = current_dir.parent / "src" / "utils" / "skill_ontology.json"
+                ontology_path = current_dir.parent / "src" / "utils" / "skill_ontology.json"
             
             # Option 3: Fallback to cwd
             if not ontology_path.exists():
