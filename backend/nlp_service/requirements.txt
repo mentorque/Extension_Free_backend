@@ -17,8 +17,9 @@ pydantic==2.9.2
 rapidfuzz==3.10.1
 
 # Sentence Transformers - Semantic skill matching + skill classification
-sentence-transformers>=5.0.0
-torch>=2.0.0
+# NOTE: These are REQUIRED for semantic classification. Railway must install these.
+sentence-transformers==2.7.0
+torch==2.5.1
 
 # Additional dependencies (installed automatically with above packages)
 # - httptools (via uvicorn[standard]) - Fast HTTP parser
