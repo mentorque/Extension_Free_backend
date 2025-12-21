@@ -816,14 +816,27 @@ class SkillClassifier:
             # Check if all files exist
             if not (important_tech_path.exists() and less_important_tech_path.exists() and 
                     non_tech_path.exists() and metadata_path.exists()):
-                logger.warning(f"Cache files not found. Looking for:")
-                logger.warning(f"  - {important_tech_path.absolute()} (exists: {important_tech_path.exists()})")
-                logger.warning(f"  - {less_important_tech_path.absolute()} (exists: {less_important_tech_path.exists()})")
-                logger.warning(f"  - {non_tech_path.absolute()} (exists: {non_tech_path.exists()})")
-                logger.warning(f"  - {metadata_path.absolute()} (exists: {metadata_path.exists()})")
-                logger.warning(f"  Current working directory: {Path.cwd()}")
-                logger.warning(f"  __file__ location: {Path(__file__).absolute()}")
-                logger.warning(f"  embeddings_dir: {self.embeddings_dir.absolute()}")
+                # Use both logger and safe_stderr_print to ensure visibility
+                error_msg = "Cache files not found. Looking for:"
+                safe_stderr_print("=" * 60, flush=True)
+                safe_stderr_print(error_msg, flush=True)
+                logger.error(error_msg)
+                
+                paths_info = [
+                    f"  - {important_tech_path.absolute()} (exists: {important_tech_path.exists()})",
+                    f"  - {less_important_tech_path.absolute()} (exists: {less_important_tech_path.exists()})",
+                    f"  - {non_tech_path.absolute()} (exists: {non_tech_path.exists()})",
+                    f"  - {metadata_path.absolute()} (exists: {metadata_path.exists()})",
+                    f"  Current working directory: {Path.cwd()}",
+                    f"  __file__ location: {Path(__file__).absolute()}",
+                    f"  embeddings_dir: {self.embeddings_dir.absolute()}"
+                ]
+                
+                for info in paths_info:
+                    safe_stderr_print(info, flush=True)
+                    logger.error(info)
+                
+                safe_stderr_print("=" * 60, flush=True)
                 return False
             
             # Load embeddings from numpy files
