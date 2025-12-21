@@ -349,15 +349,42 @@ const uploadResume = async (req, res, next) => {
       });
     }
     
-    // Extract skills from resume using NLP service with PhraseMatcher
+    // Extract keywords from resume using NLP keyword extraction (not just skills database)
     const normalizedServiceUrl = normalizeUrl(NLP_SERVICE_URL);
+    const extractKeywordsUrl = `${normalizedServiceUrl}/extract`;
     const extractSkillsUrl = `${normalizedServiceUrl}/extract-skills`;
-    console.log('[uploadResume] 🔍 Extracting skills using PhraseMatcher + skills.csv...');
+    
+    console.log('[uploadResume] 🔍 Extracting keywords from resume text...');
+    console.log(`[uploadResume]   Using: NLP keyword extraction (patterns, named entities, noun phrases)`);
+    console.log(`[uploadResume]   Endpoint: ${extractKeywordsUrl}`);
+    
+    const nlpCallStartTime = Date.now();
+    let keywordsResponse;
+    let extractResponse;
+    
+    // First, extract keywords using NLP (extracts all relevant terms from text)
+    try {
+      keywordsResponse = await axios.post(
+        extractKeywordsUrl,
+        { 
+          text: resumeText
+        },
+        { 
+          timeout: NLP_SERVICE_TIMEOUT,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+      console.log(`[uploadResume] ✅ Keyword extraction completed`);
+    } catch (error) {
+      console.warn('[uploadResume] ⚠️  Keyword extraction failed, continuing with skills only:', error.message);
+      keywordsResponse = { data: { keywords: [] } };
+    }
+    
+    // Also extract skills using PhraseMatcher (for normalization and classification)
+    console.log('[uploadResume] 🔍 Also extracting skills using PhraseMatcher + skills.csv...');
     console.log(`[uploadResume]   Endpoint: ${extractSkillsUrl}`);
     console.log(`[uploadResume]   Using: spaCy PhraseMatcher with 38k skills from skills.csv`);
     
-    const nlpCallStartTime = Date.now();
-    let extractResponse;
     try {
       extractResponse = await axios.post(
         extractSkillsUrl,
@@ -407,50 +434,80 @@ const uploadResume = async (req, res, next) => {
       throw error;
     }
     
-    // Get extracted skills with 3-section classification
-    // Skills are normalized: "ts" → "TypeScript", "node" → "Node.js"
-    const extractedSkills = Array.isArray(extractResponse.data?.skills) 
+    // Combine keywords from NLP extraction with skills from PhraseMatcher
+    const extractedKeywords = Array.isArray(keywordsResponse.data?.keywords) 
+      ? keywordsResponse.data.keywords 
+      : [];
+    
+    // Get extracted skills with 3-section classification (normalized)
+    const extractedSkills = Array.isArray(extractResponse?.data?.skills) 
       ? extractResponse.data.skills 
       : [];
     
-    // Get 3-section classification (with fallback if not present)
-    const importantSkills = Array.isArray(extractResponse.data?.important_skills)
+    // Combine both: keywords + skills (remove duplicates, case-insensitive)
+    const allKeywordsSet = new Set();
+    extractedKeywords.forEach(kw => allKeywordsSet.add(kw.toLowerCase()));
+    extractedSkills.forEach(skill => allKeywordsSet.add(skill.toLowerCase()));
+    
+    // Create combined list (prefer normalized skills over raw keywords when available)
+    const combinedKeywords = [];
+    const skillLowerMap = new Map(extractedSkills.map(s => [s.toLowerCase(), s]));
+    const keywordLowerMap = new Map(extractedKeywords.map(k => [k.toLowerCase(), k]));
+    
+    for (const key of allKeywordsSet) {
+      // Prefer normalized skill name if available, otherwise use keyword
+      const normalized = skillLowerMap.get(key) || keywordLowerMap.get(key);
+      if (normalized) {
+        combinedKeywords.push(normalized);
+      }
+    }
+    
+    console.log(`[uploadResume] 📊 Combined extraction: ${extractedKeywords.length} keywords + ${extractedSkills.length} skills = ${combinedKeywords.length} unique terms`);
+    
+    // Get 3-section classification from skills (with fallback)
+    const importantSkills = Array.isArray(extractResponse?.data?.important_skills)
       ? extractResponse.data.important_skills
-      : (Array.isArray(extractResponse.data?.skills) ? extractResponse.data.skills : []);
-    const lessImportantSkills = Array.isArray(extractResponse.data?.less_important_skills)
+      : (Array.isArray(extractResponse?.data?.skills) ? extractResponse.data.skills : []);
+    const lessImportantSkills = Array.isArray(extractResponse?.data?.less_important_skills)
       ? extractResponse.data.less_important_skills
       : [];
-    const nonTechnicalSkills = Array.isArray(extractResponse.data?.non_technical_skills)
+    const nonTechnicalSkills = Array.isArray(extractResponse?.data?.non_technical_skills)
       ? extractResponse.data.non_technical_skills
       : [];
     
+    // For display, use combined keywords (all extracted terms)
+    const displaySkills = combinedKeywords;
+    
     // Log response structure for debugging
     console.log('[uploadResume] 📋 Response structure:', {
-      has_important_skills: Array.isArray(extractResponse.data?.important_skills),
-      has_less_important_skills: Array.isArray(extractResponse.data?.less_important_skills),
-      has_non_technical_skills: Array.isArray(extractResponse.data?.non_technical_skills),
-      response_keys: Object.keys(extractResponse.data || {})
+      keywords_count: extractedKeywords.length,
+      skills_count: extractedSkills.length,
+      combined_count: displaySkills.length,
+      has_important_skills: Array.isArray(extractResponse?.data?.important_skills),
+      has_less_important_skills: Array.isArray(extractResponse?.data?.less_important_skills),
+      has_non_technical_skills: Array.isArray(extractResponse?.data?.non_technical_skills)
     });
     
-    const stats = extractResponse.data?.stats || {};
+    const stats = extractResponse?.data?.stats || {};
     
-    console.log(`[uploadResume] 📊 Skills Extraction Results (3-Section Classification):`);
+    console.log(`[uploadResume] 📊 Extraction Results:`);
     console.log(`[uploadResume]   ┌─────────────────────────────────────────┐`);
     console.log(`[uploadResume]   │ EXTRACTION STATISTICS                 │`);
     console.log(`[uploadResume]   ├─────────────────────────────────────────┤`);
-    console.log(`[uploadResume]   │ Total matches:        ${String(stats.total_matches || 0).padStart(6)} │`);
-    console.log(`[uploadResume]   │ Unique skills:       ${String(extractedSkills.length).padStart(6)} │`);
+    console.log(`[uploadResume]   │ Keywords extracted:   ${String(extractedKeywords.length).padStart(6)} │`);
+    console.log(`[uploadResume]   │ Skills matched:      ${String(extractedSkills.length).padStart(6)} │`);
+    console.log(`[uploadResume]   │ Combined unique:     ${String(displaySkills.length).padStart(6)} │`);
     console.log(`[uploadResume]   │ Important Tech:      ${String(importantSkills.length).padStart(6)} │`);
     console.log(`[uploadResume]   │ Less Important Tech: ${String(lessImportantSkills.length).padStart(6)} │`);
     console.log(`[uploadResume]   │ Non-Technical:       ${String(nonTechnicalSkills.length).padStart(6)} │`);
     console.log(`[uploadResume]   └─────────────────────────────────────────┘`);
-    console.log(`[uploadResume]   ✅ Skills normalized (e.g., "ts" → "TypeScript", "node" → "Node.js")`);
+    console.log(`[uploadResume]   ✅ Using keyword extraction (all relevant terms from text)`);
     
     // Parse resume structure (name, position, experience)
     console.log('[uploadResume] 🔍 Parsing resume structure...');
     const parsedResume = parseResumeWithNLP(resumeText);
-    // Store only Important skills in the main skills field (for display)
-    parsedResume.skills = importantSkills; // Only Important skills for display
+    // Store all extracted keywords/skills (for display)
+    parsedResume.skills = displaySkills; // All extracted keywords and skills
     // Store all categories for localStorage
     parsedResume.skills_classified = {
       important: importantSkills,
