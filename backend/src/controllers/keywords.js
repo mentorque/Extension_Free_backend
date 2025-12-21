@@ -421,10 +421,14 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT
   const pollInterval = 500; // 500ms between checks
   let attemptCount = 0;
   
+  // Normalize URL (remove trailing slash)
+  const normalizedUrl = serviceUrl.replace(/\/+$/, '');
+  const healthUrl = `${normalizedUrl}/health`;
+  
   while (Date.now() - startTime < timeoutMs) {
     attemptCount++;
     try {
-      const response = await axios.get(`${serviceUrl}/health`, { 
+      const response = await axios.get(healthUrl, { 
         timeout: 2000,
         validateStatus: (status) => status === 200
       });
@@ -454,6 +458,21 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT
 }
 
 /**
+ * Check if NLP service URL is remote (not localhost)
+ * @param {string} serviceUrl - Base URL of the NLP service
+ * @returns {boolean} True if remote URL
+ */
+function isRemoteNlpService(serviceUrl) {
+  try {
+    const url = new URL(serviceUrl);
+    const hostname = url.hostname.toLowerCase();
+    return !(hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0');
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
  * Ensure the NLP service is running, starting it if necessary
  * @param {string} serviceUrl - Base URL of the NLP service
  * @throws {Error} If service cannot be started
@@ -463,6 +482,17 @@ async function ensureNlpService(serviceUrl) {
   console.log(`[NLP Service] 🔍 Checking if service is already running at ${serviceUrl}...`);
   if (await waitForServiceHealth(serviceUrl, 1500)) {
     console.log(`[NLP Service] ✅ Service is already running\n`);
+    return;
+  }
+  
+  // If using remote service (Railway, etc.), don't try to spawn locally
+  if (isRemoteNlpService(serviceUrl)) {
+    console.log(`[NLP Service] 🌐 Remote service detected, waiting for it to become available...`);
+    const isHealthy = await waitForServiceHealth(serviceUrl, HEALTH_CHECK_TIMEOUT);
+    if (!isHealthy) {
+      throw new Error(`Remote NLP service at ${serviceUrl} is not available. Please ensure it is deployed and running.`);
+    }
+    console.log(`[NLP Service] ✅ Remote service is available\n`);
     return;
   }
   

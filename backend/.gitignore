@@ -1,42 +1,27 @@
-# dependencies
 node_modules/
-.pnp/
-.pnp.js
-
-# testing
-coverage/
-
-# production
-build/
-dist/
-.next/
-out/
-
-# misc
-.DS_Store
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+*.log
+dist/
+coverage/
+.DS_Store
+*.local
+tmp/
+*.sqlite
+*.bak
+package-lock.json
+yarn.lock
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.tgz
+/.vscode/
 
-# logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-
-# Mac system files
-Thumbs.db
+/src/generated/prisma
 
 # Python virtual environment
 venv/
-backend/venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -45,8 +30,6 @@ __pycache__/
 *.so
 *.egg
 *.egg-info/
-dist/
-build/
 .pytest_cache/
 .coverage
 htmlcov/

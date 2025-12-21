@@ -59,9 +59,15 @@ app.use(cors({
     
     // Allow specific production domains
     const allowedOrigins = [
-    'https://platform-frontend-gamma-two.vercel.app',
+      'https://platform-frontend-gamma-two.vercel.app',
       'https://app.mentorquedu.com',
+      'https://nodejs-service-production-e9b3.up.railway.app',
     ];
+    
+    // Allow Railway domains (any *.up.railway.app)
+    if (origin.includes('.up.railway.app')) {
+      return callback(null, true);
+    }
     
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);

@@ -48,10 +48,14 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = 15000) {
   const pollInterval = 500;
   let attemptCount = 0;
   
+  // Normalize URL (remove trailing slash)
+  const normalizedUrl = serviceUrl.replace(/\/+$/, '');
+  const healthUrl = `${normalizedUrl}/health`;
+  
   while (Date.now() - startTime < timeoutMs) {
     attemptCount++;
     try {
-      const response = await axios.get(`${serviceUrl}/health`, { 
+      const response = await axios.get(healthUrl, { 
         timeout: 2000,
         validateStatus: (status) => status === 200
       });
@@ -72,9 +76,35 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = 15000) {
   return false;
 }
 
+/**
+ * Check if NLP service URL is remote (not localhost)
+ * @param {string} serviceUrl - Base URL of the NLP service
+ * @returns {boolean} True if remote URL
+ */
+function isRemoteNlpService(serviceUrl) {
+  try {
+    const url = new URL(serviceUrl);
+    const hostname = url.hostname.toLowerCase();
+    return !(hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0');
+  } catch (error) {
+    return false;
+  }
+}
+
 async function ensureNlpService(serviceUrl) {
   if (await waitForServiceHealth(serviceUrl, 1500)) {
     console.log(`[uploadResume] ✅ NLP service is already running`);
+    return;
+  }
+  
+  // If using remote service (Railway, etc.), don't try to spawn locally
+  if (isRemoteNlpService(serviceUrl)) {
+    console.log(`[uploadResume] 🌐 Remote service detected, waiting for it to become available...`);
+    const isHealthy = await waitForServiceHealth(serviceUrl, 15000);
+    if (!isHealthy) {
+      throw new Error(`Remote NLP service at ${serviceUrl} is not available. Please ensure it is deployed and running.`);
+    }
+    console.log(`[uploadResume] ✅ Remote service is available`);
     return;
   }
   
