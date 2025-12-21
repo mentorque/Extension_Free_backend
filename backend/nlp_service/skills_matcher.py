@@ -1305,12 +1305,7 @@ class SkillClassifier:
             )
             
             elapsed_ms = (time.time() - start_time) * 1000
-            result_emoji = "✅" if is_technical else "🚫"
-            result_text = "TECHNICAL" if is_technical else "NON-TECHNICAL"
-            log_msg = (f"[EMBEDDINGS] {result_emoji} '{skill}': {result_text} (fallback mode) "
-                      f"(tech_sim={max_tech_sim:.3f}, non_tech_sim={max_non_tech_sim:.3f}, "
-                      f"confidence={confidence:.3f}, {elapsed_ms:.1f}ms)")
-            safe_stderr_print(log_msg, flush=True)
+            # Removed verbose logging - only track stats
             
             return is_technical
         except Exception as e:
@@ -2126,7 +2121,7 @@ def extract_skills_with_phrasematcher(
     
         # Debug: Check if "spring boot" is in the skills database
         spring_boot_in_db = any("spring boot" in skill.lower() for skill in skills_db.skills)
-        safe_stderr_print(f"[EMBEDDINGS] 'spring boot' in skills database: {spring_boot_in_db}", flush=True)
+        # Removed verbose debug logging
     
         # Debug: Check if "spring boot" appears in text
         text_lower = text.lower()
