@@ -773,12 +773,7 @@ class SkillClassifier:
                 self.non_tech_embeddings = None
                 self.tech_embeddings = None
                 return
-            
-            # All embedding computation code removed - server only loads from cache
-            # Embeddings must be pre-computed on laptop using precompute_embeddings.py
-            # If cache is not found, classifier is disabled (no computation on server)
-            # This code path should never be reached if cache loading works correctly
-            pass
+        except Exception as e:
             error_msg = f"❌ Failed to initialize skill classifier: {e}"
             error_type = type(e).__name__
             safe_stderr_print("=" * 60, flush=True)
@@ -793,7 +788,6 @@ class SkillClassifier:
             safe_stderr_print(f"   Traceback: {traceback_str}", flush=True)
             self.model = None
             self.available = False
-            # Still try to set embeddings to None explicitly
             self.important_tech_embeddings = None
             self.less_important_tech_embeddings = None
             self.non_tech_embeddings = None
@@ -893,49 +887,6 @@ class SkillClassifier:
         except Exception as e:
             logger.error(f"Failed to save embeddings to cache: {e}")
             raise
-                "Go", "Rust", "Kotlin", "Swift", "Scala", "Ruby", "PHP", "R",
-                # Major Frontend Frameworks
-                "React", "Angular", "Vue.js", "Next.js", "Svelte",
-                # Major Backend Frameworks
-                "Spring Boot", "Django", "Flask", "Express.js", "FastAPI", "ASP.NET",
-                "Laravel", "Rails", "Spring", "Hibernate",
-                # Core Databases
-                "PostgreSQL", "MySQL", "MongoDB", "Redis", "Oracle", "SQL Server",
-                "SQL", "NoSQL", "Cassandra", "Elasticsearch",
-                # Major Cloud Platforms
-                "AWS", "Azure", "GCP",
-                # Important DevOps Tools
-                "Docker", "Kubernetes", "Terraform", "Jenkins",
-                "CI/CD", "Git", "GitHub", "GitLab",
-                # Core APIs & Protocols
-                "REST API", "GraphQL", "OAuth2", "OpenID Connect", "SAML", "JWT",
-                # Core Architecture Patterns
-                "Microservices", "Design Patterns", "REST", "SOAP", "gRPC",
-                # Core Data & ML
-                "Machine Learning", "TensorFlow", "PyTorch", "Pandas", "NumPy",
-                "Cloud Computing", "Big Data", "Apache Spark", "Hadoop",
-                # Important Testing Tools
-                "JUnit", "Jest", "Pytest", "Mocha", "Selenium"
-            ]
-            
-            # Less Important Technical skill exemplars (Very vague, generic technical terms - Lower priority)
-            self.less_important_tech_examples = [
-                # Vague development terms
-                "web development", "application development",
-                "programming", "coding", "software engineering",
-                # Generic technical terms
-                "system administration", "technical support", "troubleshooting",
-                "debugging", "system design", "technical documentation",
-                "code review", "software testing", "quality assurance",
-                "technical writing", "system integration", "data processing",
-                "information technology", "computer science", "technical skills",
-                "development tools", "software tools", "technical knowledge",
-                # Generic concepts
-                "software architecture", "system architecture", "application architecture",
-                "technical analysis", "problem solving", "technical problem solving",
-                "software maintenance", "system maintenance", "technical maintenance",
-                "software deployment", "system deployment", "technical deployment"
-            ]
             
             # Keep technical_examples for backwards compatibility (combined)
             self.technical_examples = self.important_tech_examples + self.less_important_tech_examples
