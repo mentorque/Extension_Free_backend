@@ -2123,10 +2123,8 @@ def extract_skills_with_phrasematcher(
         spring_boot_in_db = any("spring boot" in skill.lower() for skill in skills_db.skills)
         # Removed verbose debug logging
     
-        # Debug: Check if "spring boot" appears in text
+        # Removed verbose debug logging
         text_lower = text.lower()
-        spring_boot_in_text = "spring boot" in text_lower
-        safe_stderr_print(f"[EMBEDDINGS] 'spring boot' in text: {spring_boot_in_text}", flush=True)
     
         # Extract matched skills with frequency tracking
         # Track: {skill_lower: {'text': matched_text, 'frequency': count, 'spans': [spans]}}
