@@ -804,40 +804,48 @@ class SkillClassifier:
     
     def _load_embeddings_from_cache(self) -> bool:
         """Load embeddings from cache files. Returns True if successful."""
+        # ALWAYS log path information first, before any imports or operations
+        # This ensures we see debugging info even if imports fail
+        important_tech_path = self.embeddings_dir / "important_tech_embeddings.npy"
+        less_important_tech_path = self.embeddings_dir / "less_important_tech_embeddings.npy"
+        non_tech_path = self.embeddings_dir / "non_tech_embeddings.npy"
+        metadata_path = self.embeddings_metadata_csv
+        
+        # Log path information for debugging (always, regardless of file existence)
+        safe_stderr_print("=" * 60, flush=True)
+        safe_stderr_print("🔍 [EMBEDDINGS] Checking cache files...", flush=True)
+        logger.info("🔍 [EMBEDDINGS] Checking cache files...")
+        
+        paths_info = [
+            f"  Current working directory: {Path.cwd()}",
+            f"  __file__ location: {Path(__file__).absolute()}",
+            f"  embeddings_dir: {self.embeddings_dir.absolute()}",
+            f"  - {important_tech_path.absolute()} (exists: {important_tech_path.exists()})",
+            f"  - {less_important_tech_path.absolute()} (exists: {less_important_tech_path.exists()})",
+            f"  - {non_tech_path.absolute()} (exists: {non_tech_path.exists()})",
+            f"  - {metadata_path.absolute()} (exists: {metadata_path.exists()})"
+        ]
+        
+        for info in paths_info:
+            safe_stderr_print(info, flush=True)
+            logger.info(info)
+        
+        # Check if all files exist
+        if not (important_tech_path.exists() and less_important_tech_path.exists() and 
+                non_tech_path.exists() and metadata_path.exists()):
+            error_msg = "❌ Cache files not found - some files are missing"
+            safe_stderr_print(error_msg, flush=True)
+            logger.error(error_msg)
+            safe_stderr_print("=" * 60, flush=True)
+            return False
+        
+        safe_stderr_print("✅ All cache files found", flush=True)
+        logger.info("✅ All cache files found")
+        safe_stderr_print("=" * 60, flush=True)
+        
         try:
             import numpy as np
             import torch
-            
-            important_tech_path = self.embeddings_dir / "important_tech_embeddings.npy"
-            less_important_tech_path = self.embeddings_dir / "less_important_tech_embeddings.npy"
-            non_tech_path = self.embeddings_dir / "non_tech_embeddings.npy"
-            metadata_path = self.embeddings_metadata_csv
-            
-            # Check if all files exist
-            if not (important_tech_path.exists() and less_important_tech_path.exists() and 
-                    non_tech_path.exists() and metadata_path.exists()):
-                # Use both logger and safe_stderr_print to ensure visibility
-                error_msg = "Cache files not found. Looking for:"
-                safe_stderr_print("=" * 60, flush=True)
-                safe_stderr_print(error_msg, flush=True)
-                logger.error(error_msg)
-                
-                paths_info = [
-                    f"  - {important_tech_path.absolute()} (exists: {important_tech_path.exists()})",
-                    f"  - {less_important_tech_path.absolute()} (exists: {less_important_tech_path.exists()})",
-                    f"  - {non_tech_path.absolute()} (exists: {non_tech_path.exists()})",
-                    f"  - {metadata_path.absolute()} (exists: {metadata_path.exists()})",
-                    f"  Current working directory: {Path.cwd()}",
-                    f"  __file__ location: {Path(__file__).absolute()}",
-                    f"  embeddings_dir: {self.embeddings_dir.absolute()}"
-                ]
-                
-                for info in paths_info:
-                    safe_stderr_print(info, flush=True)
-                    logger.error(info)
-                
-                safe_stderr_print("=" * 60, flush=True)
-                return False
             
             # Load embeddings from numpy files
             important_tech_array = np.load(important_tech_path)
@@ -878,7 +886,18 @@ class SkillClassifier:
             logger.info("✅ Loaded embeddings from cache")
             return True
         except Exception as e:
-            logger.error(f"Failed to load embeddings from cache: {e}")
+            error_msg = f"❌ Failed to load embeddings from cache: {e}"
+            error_type = type(e).__name__
+            safe_stderr_print("=" * 60, flush=True)
+            safe_stderr_print(error_msg, flush=True)
+            safe_stderr_print(f"   Error type: {error_type}", flush=True)
+            logger.error(error_msg)
+            logger.error(f"   Error type: {error_type}")
+            import traceback
+            traceback_str = traceback.format_exc()
+            logger.error(f"   Traceback: {traceback_str}")
+            safe_stderr_print(f"   Traceback: {traceback_str}", flush=True)
+            safe_stderr_print("=" * 60, flush=True)
             return False
     
     def _save_embeddings_to_cache(self) -> None:
