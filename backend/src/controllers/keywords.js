@@ -21,6 +21,15 @@ const NLP_SERVICE_TIMEOUT = parseInt(process.env.NLP_SERVICE_TIMEOUT) || 120000;
 const HEALTH_CHECK_TIMEOUT = parseInt(process.env.HEALTH_CHECK_TIMEOUT) || 60000; // 60 seconds (allows time for Sentence Transformers model download on first run)
 const MAX_PRESENT_SKILLS = 15; // Maximum number of present skills to show
 
+/**
+ * Normalize URL by removing trailing slashes
+ * @param {string} url - URL to normalize
+ * @returns {string} Normalized URL without trailing slash
+ */
+function normalizeUrl(url) {
+  return url.replace(/\/+$/, '');
+}
+
 // Utility function for normalizing text for matching
 function normalizeForMatching(text) {
   return String(text || '')
@@ -422,7 +431,7 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT
   let attemptCount = 0;
   
   // Normalize URL (remove trailing slash)
-  const normalizedUrl = serviceUrl.replace(/\/+$/, '');
+  const normalizedUrl = normalizeUrl(serviceUrl);
   const healthUrl = `${normalizedUrl}/health`;
   
   while (Date.now() - startTime < timeoutMs) {
@@ -902,8 +911,10 @@ const generateKeywords = async (req, res, next) => {
     }
     
     // Extract skills from job description using NLP service with PhraseMatcher
+    const normalizedServiceUrl = normalizeUrl(NLP_SERVICE_URL);
+    const extractSkillsUrl = `${normalizedServiceUrl}/extract-skills`;
     console.log(`[Keywords] 🔍 Step 2: Extracting skills using PhraseMatcher + skills.csv...`);
-    console.log(`[Keywords]   Endpoint: ${NLP_SERVICE_URL}/extract-skills`);
+    console.log(`[Keywords]   Endpoint: ${extractSkillsUrl}`);
     console.log(`[Keywords]   Method: POST`);
     console.log(`[Keywords]   Using: spaCy PhraseMatcher with 38k skills from skills.csv`);
     console.log(`[Keywords]   Timeout: ${NLP_SERVICE_TIMEOUT}ms\n`);
@@ -912,7 +923,7 @@ const generateKeywords = async (req, res, next) => {
     let extractResponse;
     try {
       extractResponse = await axios.post(
-        `${NLP_SERVICE_URL}/extract-skills`,
+        extractSkillsUrl,
         { 
           text: jobDescription,
           use_fuzzy: true

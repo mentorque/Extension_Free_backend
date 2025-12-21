@@ -12,6 +12,15 @@ const NLP_SERVICE_URL = process.env.NLP_SERVICE_URL || 'http://127.0.0.1:8001';
 const NLP_SERVICE_PORT = new URL(NLP_SERVICE_URL).port || '8001';
 const NLP_SERVICE_TIMEOUT = 120000; // 2 minutes
 
+/**
+ * Normalize URL by removing trailing slashes
+ * @param {string} url - URL to normalize
+ * @returns {string} Normalized URL without trailing slash
+ */
+function normalizeUrl(url) {
+  return url.replace(/\/+$/, '');
+}
+
 // ============================================================================
 // NLP Service Management (reuse from keywords.js logic)
 // ============================================================================
@@ -49,7 +58,7 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = 15000) {
   let attemptCount = 0;
   
   // Normalize URL (remove trailing slash)
-  const normalizedUrl = serviceUrl.replace(/\/+$/, '');
+  const normalizedUrl = normalizeUrl(serviceUrl);
   const healthUrl = `${normalizedUrl}/health`;
   
   while (Date.now() - startTime < timeoutMs) {
@@ -341,15 +350,17 @@ const uploadResume = async (req, res, next) => {
     }
     
     // Extract skills from resume using NLP service with PhraseMatcher
+    const normalizedServiceUrl = normalizeUrl(NLP_SERVICE_URL);
+    const extractSkillsUrl = `${normalizedServiceUrl}/extract-skills`;
     console.log('[uploadResume] 🔍 Extracting skills using PhraseMatcher + skills.csv...');
-    console.log(`[uploadResume]   Endpoint: ${NLP_SERVICE_URL}/extract-skills`);
+    console.log(`[uploadResume]   Endpoint: ${extractSkillsUrl}`);
     console.log(`[uploadResume]   Using: spaCy PhraseMatcher with 38k skills from skills.csv`);
     
     const nlpCallStartTime = Date.now();
     let extractResponse;
     try {
       extractResponse = await axios.post(
-        `${NLP_SERVICE_URL}/extract-skills`,
+        extractSkillsUrl,
         { 
           text: resumeText,
           use_fuzzy: true
