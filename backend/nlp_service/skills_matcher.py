@@ -724,9 +724,6 @@ class SkillClassifier:
         self.embeddings_dir.mkdir(exist_ok=True)
         self.embeddings_metadata_csv = self.embeddings_dir / "embeddings_metadata.csv"
         
-        # Log cache directory path for debugging
-        logger.info(f"Embeddings cache directory: {self.embeddings_dir.absolute()}")
-        
         if not SENTENCE_TRANSFORMERS_AVAILABLE:
             safe_stderr_print("=" * 60)
             safe_stderr_print("⚠️  [Sentence Transformers] NOT INSTALLED")
@@ -758,20 +755,14 @@ class SkillClassifier:
             
             # ONLY load from cache - NEVER compute on server
             # Embeddings must be pre-computed on laptop and committed to git
-            cache_loaded = self._load_embeddings_from_cache()
-            if cache_loaded:
+            if self._load_embeddings_from_cache():
                 safe_stderr_print("✅ Loaded pre-computed embeddings from cache", flush=True)
                 logger.info("✅ Loaded pre-computed embeddings from cache - server skipped computation")
                 return
             else:
                 # Cache not found - disable classifier (don't compute on server)
-                # The detailed path logging is already done in _load_embeddings_from_cache()
                 error_msg = "❌ Embeddings cache not found - pre-compute on laptop and commit to git"
-                safe_stderr_print("=" * 60, flush=True)
                 safe_stderr_print(error_msg, flush=True)
-                safe_stderr_print("   Run: cd backend/nlp_service && python3 precompute_embeddings.py", flush=True)
-                safe_stderr_print("   Then commit the .npy files to git", flush=True)
-                safe_stderr_print("=" * 60, flush=True)
                 logger.error(error_msg)
                 logger.error("   Run: cd backend/nlp_service && python3 precompute_embeddings.py")
                 logger.error("   Then commit the .npy files to git")
@@ -804,48 +795,19 @@ class SkillClassifier:
     
     def _load_embeddings_from_cache(self) -> bool:
         """Load embeddings from cache files. Returns True if successful."""
-        # ALWAYS log path information first, before any imports or operations
-        # This ensures we see debugging info even if imports fail
-        important_tech_path = self.embeddings_dir / "important_tech_embeddings.npy"
-        less_important_tech_path = self.embeddings_dir / "less_important_tech_embeddings.npy"
-        non_tech_path = self.embeddings_dir / "non_tech_embeddings.npy"
-        metadata_path = self.embeddings_metadata_csv
-        
-        # Log path information for debugging (always, regardless of file existence)
-        safe_stderr_print("=" * 60, flush=True)
-        safe_stderr_print("🔍 [EMBEDDINGS] Checking cache files...", flush=True)
-        logger.info("🔍 [EMBEDDINGS] Checking cache files...")
-        
-        paths_info = [
-            f"  Current working directory: {Path.cwd()}",
-            f"  __file__ location: {Path(__file__).absolute()}",
-            f"  embeddings_dir: {self.embeddings_dir.absolute()}",
-            f"  - {important_tech_path.absolute()} (exists: {important_tech_path.exists()})",
-            f"  - {less_important_tech_path.absolute()} (exists: {less_important_tech_path.exists()})",
-            f"  - {non_tech_path.absolute()} (exists: {non_tech_path.exists()})",
-            f"  - {metadata_path.absolute()} (exists: {metadata_path.exists()})"
-        ]
-        
-        for info in paths_info:
-            safe_stderr_print(info, flush=True)
-            logger.info(info)
-        
-        # Check if all files exist
-        if not (important_tech_path.exists() and less_important_tech_path.exists() and 
-                non_tech_path.exists() and metadata_path.exists()):
-            error_msg = "❌ Cache files not found - some files are missing"
-            safe_stderr_print(error_msg, flush=True)
-            logger.error(error_msg)
-            safe_stderr_print("=" * 60, flush=True)
-            return False
-        
-        safe_stderr_print("✅ All cache files found", flush=True)
-        logger.info("✅ All cache files found")
-        safe_stderr_print("=" * 60, flush=True)
-        
         try:
             import numpy as np
             import torch
+            
+            important_tech_path = self.embeddings_dir / "important_tech_embeddings.npy"
+            less_important_tech_path = self.embeddings_dir / "less_important_tech_embeddings.npy"
+            non_tech_path = self.embeddings_dir / "non_tech_embeddings.npy"
+            metadata_path = self.embeddings_metadata_csv
+            
+            # Check if all files exist
+            if not (important_tech_path.exists() and less_important_tech_path.exists() and 
+                    non_tech_path.exists() and metadata_path.exists()):
+                return False
             
             # Load embeddings from numpy files
             important_tech_array = np.load(important_tech_path)
@@ -863,14 +825,13 @@ class SkillClassifier:
             except Exception:
                 self.tech_embeddings = self.important_tech_embeddings
             
-            # Load model (needed for classification) - only if not already loaded
-            if self.model is None:
-                from sentence_transformers import SentenceTransformer
-                # Suppress GPU messages
-                import warnings
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+            # Load model (needed for classification)
+            from sentence_transformers import SentenceTransformer
+            # Suppress GPU messages
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
             
             # Read metadata CSV
             import csv
@@ -886,18 +847,7 @@ class SkillClassifier:
             logger.info("✅ Loaded embeddings from cache")
             return True
         except Exception as e:
-            error_msg = f"❌ Failed to load embeddings from cache: {e}"
-            error_type = type(e).__name__
-            safe_stderr_print("=" * 60, flush=True)
-            safe_stderr_print(error_msg, flush=True)
-            safe_stderr_print(f"   Error type: {error_type}", flush=True)
-            logger.error(error_msg)
-            logger.error(f"   Error type: {error_type}")
-            import traceback
-            traceback_str = traceback.format_exc()
-            logger.error(f"   Traceback: {traceback_str}")
-            safe_stderr_print(f"   Traceback: {traceback_str}", flush=True)
-            safe_stderr_print("=" * 60, flush=True)
+            logger.error(f"Failed to load embeddings from cache: {e}")
             return False
     
     def _save_embeddings_to_cache(self) -> None:
@@ -937,6 +887,185 @@ class SkillClassifier:
         except Exception as e:
             logger.error(f"Failed to save embeddings to cache: {e}")
             raise
+            
+            # Keep technical_examples for backwards compatibility (combined)
+            self.technical_examples = self.important_tech_examples + self.less_important_tech_examples
+            
+            # Non-technical exemplars (expanded with job posting terms)
+            self.non_technical_examples = [
+                # Soft skills
+                "productivity", "feedback", "customer", "player",
+                "improvement", "learning", "transformation", "reviews",
+                "transparency", "working from home", "responsiveness",
+                "collaboration", "team player", "communication",
+                "leadership", "management", "development center",
+                "pregnancy", "religion", "color", "cooperation",
+                "research", "rocket", "start-up", "yarn", "it", "digital",
+                # Insurance and financial terms (NOT technical skills)
+                "term life insurance", "life insurance", "health insurance",
+                "disability insurance", "insurance", "value proposition",
+                "credit", "craft",
+                # Job posting/HR terms (NOT technical skills)
+                "engineering", "hiring", "open source", "resume", "root", "root cause",
+                "scratch", "screening", "start to finish", "notice period",
+                "opportunity", "placement", "salary", "competitive", "apply",
+                "interview", "client", "talent", "career", "challenge",
+                "work environment", "portal", "register", "login", "upload",
+                "shortlisted", "meet", "waiting", "ready", "today", "step",
+                "process", "click", "form", "chances", "progress", "goal",
+                "reliable", "simple", "fast", "relevant", "great fit",
+                "part", "founding", "team", "building", "consumer", "payments",
+                "platform", "grounds", "own", "end to end", "responsibility",
+                "deployment", "monitoring", "develop", "features", "working",
+                "distributed", "environment", "handle", "million", "customers",
+                "millisecond", "latencies", "dive", "details", "issues",
+                "incidents", "outages", "analyze", "prepare", "reports",
+                "solving", "real", "business", "needs", "large scale",
+                "consumer-tech", "saas", "startup", "built", "systems",
+                "before", "years", "containers", "designing", "services",
+                "caching", "realtime", "ensuring", "whatever", "build",
+                "deploy", "start", "finish", "top-notch", "quality", "enjoy",
+                "products", "joining", "early", "stage", "involves", "more",
+                "than", "just", "developing", "app", "often", "chaotic",
+                "environments", "involved", "decisions", "well", "leverage",
+                "faster", "need", "able", "collaborate", "design", "teams",
+                "within", "constraints", "understand", "companies", "make",
+                "correct", "tradeoffs", "between", "time", "speed", "features",
+                "whenever", "required", "love", "give", "back", "community",
+                "through", "blogging", "mentoring", "contributing", "fintech",
+                "industry", "around", "big", "plus", "easy", "register",
+                "updated", "complete", "increase", "get", "meet", "for",
+                "about", "make", "getting", "hired", "role", "help", "all",
+                "our", "talents", "find", "progress", "their", "note",
+                "there", "are", "many", "more", "opportunities", "apart",
+                "from", "this", "on", "so", "you", "are", "ready", "new",
+                "environment", "take", "your", "next", "level", "don't",
+                "hesitate", "today", "we", "waiting", "for", "you"
+            ]
+            
+            # All computation code removed - server only loads from cache
+        except Exception as e:
+            error_msg = f"❌ Failed to initialize skill classifier: {e}"
+            error_type = type(e).__name__
+            safe_stderr_print("=" * 60, flush=True)
+            safe_stderr_print(error_msg, flush=True)
+            safe_stderr_print(f"   Error type: {error_type}", flush=True)
+            safe_stderr_print("=" * 60, flush=True)
+            logger.error(error_msg)
+            logger.error(f"   Error type: {error_type}")
+            import traceback
+            traceback_str = traceback.format_exc()
+            logger.error(f"   Traceback: {traceback_str}")
+            safe_stderr_print(f"   Traceback: {traceback_str}", flush=True)
+            self.model = None
+            self.available = False
+            # Still try to set embeddings to None explicitly
+            self.important_tech_embeddings = None
+            self.less_important_tech_embeddings = None
+            self.non_tech_embeddings = None
+            self.tech_embeddings = None
+    
+    def _load_embeddings_from_cache(self) -> bool:
+        """Load embeddings from cache files. Returns True if successful."""
+        try:
+            import numpy as np
+            import torch
+            
+            important_tech_path = self.embeddings_dir / "important_tech_embeddings.npy"
+            less_important_tech_path = self.embeddings_dir / "less_important_tech_embeddings.npy"
+            non_tech_path = self.embeddings_dir / "non_tech_embeddings.npy"
+            metadata_path = self.embeddings_metadata_csv
+            
+            # Check if all files exist
+            if not (important_tech_path.exists() and less_important_tech_path.exists() and 
+                    non_tech_path.exists() and metadata_path.exists()):
+                return False
+            
+            # Load embeddings from numpy files
+            important_tech_array = np.load(important_tech_path)
+            less_important_tech_array = np.load(less_important_tech_path)
+            non_tech_array = np.load(non_tech_path)
+            
+            # Convert to torch tensors
+            self.important_tech_embeddings = torch.from_numpy(important_tech_array)
+            self.less_important_tech_embeddings = torch.from_numpy(less_important_tech_array)
+            self.non_tech_embeddings = torch.from_numpy(non_tech_array)
+            
+            # Create combined tech embeddings
+            try:
+                self.tech_embeddings = torch.cat([self.important_tech_embeddings, self.less_important_tech_embeddings], dim=0)
+            except Exception:
+                self.tech_embeddings = self.important_tech_embeddings
+            
+            # Load model (needed for classification)
+            from sentence_transformers import SentenceTransformer
+            # Suppress GPU messages
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+            
+            # Read metadata CSV
+            import csv
+            with open(metadata_path, 'r') as f:
+                reader = csv.DictReader(f)
+                metadata = next(reader, None)
+                if metadata:
+                    logger.info(f"Loaded embeddings cache created on: {metadata.get('created_date', 'unknown')}")
+                    logger.info(f"Important Tech: {metadata.get('important_tech_count', 'unknown')} examples")
+                    logger.info(f"Less Important Tech: {metadata.get('less_important_tech_count', 'unknown')} examples")
+                    logger.info(f"Non-Tech: {metadata.get('non_tech_count', 'unknown')} examples")
+            
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to load embeddings from cache: {e}")
+            return False
+    
+    def _save_embeddings_to_cache(self) -> None:
+        """Save embeddings to cache files for future use."""
+        try:
+            import numpy as np
+            import torch
+            from datetime import datetime
+            import csv
+            
+            if (self.important_tech_embeddings is None or 
+                self.less_important_tech_embeddings is None or 
+                self.non_tech_embeddings is None):
+                logger.warning("Cannot save embeddings: some embeddings are None")
+                return
+            
+            # Convert torch tensors to numpy arrays and save
+            important_tech_array = self.important_tech_embeddings.cpu().numpy()
+            less_important_tech_array = self.less_important_tech_embeddings.cpu().numpy()
+            non_tech_array = self.non_tech_embeddings.cpu().numpy()
+            
+            np.save(self.embeddings_dir / "important_tech_embeddings.npy", important_tech_array)
+            np.save(self.embeddings_dir / "less_important_tech_embeddings.npy", less_important_tech_array)
+            np.save(self.embeddings_dir / "non_tech_embeddings.npy", non_tech_array)
+            
+            # Save metadata to CSV
+            metadata = {
+                'created_date': datetime.now().isoformat(),
+                'important_tech_count': len(self.important_tech_examples),
+                'less_important_tech_count': len(self.less_important_tech_examples),
+                'non_tech_count': len(self.non_technical_examples),
+                'important_tech_shape': str(important_tech_array.shape),
+                'less_important_tech_shape': str(less_important_tech_array.shape),
+                'non_tech_shape': str(non_tech_array.shape)
+            }
+            
+            # Write CSV (create if doesn't exist, overwrite if exists)
+            with open(self.embeddings_metadata_csv, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=metadata.keys())
+                writer.writeheader()
+                writer.writerow(metadata)
+            
+            logger.info(f"Saved embeddings to {self.embeddings_dir}")
+        except Exception as e:
+            logger.error(f"Failed to save embeddings to cache: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
     
     def is_technical_skill(self, skill: str, threshold: float = 0.15) -> bool:
         """
@@ -1060,80 +1189,6 @@ class SkillClassifier:
         except Exception as e:
             logger.warning(f"⚠️  Error in fallback classification for '{skill}': {e}")
             return True
-    
-    def is_relevant_keyword(self, keyword: str, threshold: float = 0.10) -> bool:
-        """
-        Check if keyword is relevant enough to extract (pre-filtering).
-        
-        More permissive than is_technical_skill() - returns True if keyword is similar
-        to ANY category (Important Tech, Less Important Tech, or Non-Tech).
-        This allows business keywords, tools, etc. to pass through.
-        Only filters out completely irrelevant terms.
-        
-        Args:
-            keyword: Keyword to check
-            threshold: Similarity threshold (lower = more permissive, default 0.10)
-            
-        Returns:
-            True if keyword is relevant/extractable, False otherwise
-        """
-        if not self.available or self.model is None:
-            return True  # Fallback: allow all if classifier not available
-        
-        try:
-            import time
-            import torch
-            from sentence_transformers import util
-            
-            start_time = time.time()
-            
-            # Encode the keyword
-            keyword_embedding = self.model.encode(keyword, convert_to_tensor=True)
-            
-            # Compute max similarity to each category
-            if self.important_tech_embeddings is not None:
-                important_sim = torch.max(util.cos_sim(keyword_embedding, self.important_tech_embeddings)).item()
-            else:
-                important_sim = 0.0
-            
-            if self.less_important_tech_embeddings is not None:
-                less_important_sim = torch.max(util.cos_sim(keyword_embedding, self.less_important_tech_embeddings)).item()
-            else:
-                less_important_sim = 0.0
-            
-            if self.non_tech_embeddings is not None:
-                non_tech_sim = torch.max(util.cos_sim(keyword_embedding, self.non_tech_embeddings)).item()
-            else:
-                non_tech_sim = 0.0
-            
-            # More permissive: keyword is relevant if it's similar to ANY category
-            # This allows business keywords, tools, soft skills, etc. to pass through
-            max_similarity = max(important_sim, less_important_sim, non_tech_sim)
-            
-            # Also check if it's a proper noun/tool name (likely relevant even if low similarity)
-            # Proper nouns (capitalized) are often tool/technology names
-            is_proper_noun = keyword and len(keyword) > 0 and keyword[0].isupper() and len(keyword) >= 2
-            
-            # Keyword is relevant if:
-            # 1. Similarity to any category is above threshold, OR
-            # 2. It's a proper noun (likely a tool/technology name)
-            is_relevant = max_similarity > threshold or (is_proper_noun and max_similarity > 0.05)
-            
-            # Update statistics
-            self.classification_count += 1
-            elapsed_ms = (time.time() - start_time) * 1000
-            self.total_time_ms += elapsed_ms
-            
-            if is_relevant:
-                self.kept_count += 1
-            else:
-                self.filtered_count += 1
-            
-            return is_relevant
-            
-        except Exception as e:
-            logger.warning(f"⚠️  Error checking keyword relevance '{keyword}': {e}")
-            return True  # Fallback: allow if classification fails
     
     def get_stats(self) -> dict:
         """Get classification statistics"""
@@ -1687,167 +1742,14 @@ class SkillsDatabase:
 
 
 # Global skills database instance
-class KeywordsDatabase:
-    """Manages keywords database with PhraseMatcher - more permissive than SkillsDatabase"""
-    
-    def __init__(self, csv_path: str, ontology_path: Optional[str] = None):
-        self.csv_path = csv_path
-        self.keywords: List[str] = []
-        self.keywords_lower: List[str] = []
-        self.canonical_map: Dict[str, str] = {}  # keyword -> canonical form
-        self.reverse_canonical: Dict[str, List[str]] = defaultdict(list)  # canonical -> [keywords]
-        self.keywords_dict: Dict[str, str] = {}  # normalized -> original (O(1) lookup)
-        self.ontology = SkillOntology(ontology_path) if ontology_path else None
-        self.classifier = SkillClassifier()  # Semantic keyword classifier (for pre-filtering)
-        self.loaded = False
-        
-    def load(self) -> None:
-        """Load keywords from CSV file - more permissive filtering than SkillsDatabase"""
-        if self.loaded:
-            return
-            
-        logger.info(f"Loading keywords from {self.csv_path}")
-        
-        # Log Sentence Transformers status
-        if self.classifier.available:
-            logger.info("✅ [Sentence Transformers] Classifier is available - will pre-filter keywords")
-        else:
-            logger.warning("⚠️  [Sentence Transformers] Classifier NOT available - all keywords will be loaded")
-            logger.warning("   Install with: pip install sentence-transformers torch")
-        
-        if not os.path.exists(self.csv_path):
-            raise FileNotFoundError(f"Keywords CSV not found: {self.csv_path}")
-        
-        keywords_set = set()  # Use set to avoid duplicates
-        
-        try:
-            loaded_count = 0
-            filtered_count = 0
-            total_processed = 0
-            
-            with open(self.csv_path, 'r', encoding='utf-8', errors='ignore') as f:
-                reader = csv.DictReader(f)
-                # Count total rows first for progress
-                rows = list(reader)
-                total_rows = len(rows)
-                
-                for row in rows:
-                    keyword = row.get('Keyword', '').strip()
-                    if keyword:
-                        # Clean up quotes and newlines
-                        keyword = keyword.replace('"', '').replace('\n', ' ').strip()
-                        if keyword and len(keyword) > 1:  # Skip single characters
-                            total_processed += 1
-                            
-                            # PRE-FILTER: Use is_relevant_keyword (more permissive than is_technical_skill)
-                            # This allows business keywords, tools, soft skills, etc. to pass through
-                            if self.classifier.available:
-                                # Show progress every 100 keywords or at milestones
-                                if total_processed % 100 == 0 or total_processed == total_rows:
-                                    progress_pct = (total_processed / total_rows * 100) if total_rows > 0 else 0
-                                    safe_stderr_print(f"\r🔄 Loading keywords: {total_processed}/{total_rows} ({progress_pct:.1f}%) - Kept: {loaded_count}, Filtered: {filtered_count}", end='', flush=True)
-                                
-                                # Skip pre-filtering during loading - it's too slow for 40k+ keywords
-                                # Keywords are already curated in keywords.csv, so we trust them
-                                # Pre-filtering will happen later during actual extraction if needed
-                                # if not self.classifier.is_relevant_keyword(keyword, threshold=0.10):
-                                #     filtered_count += 1
-                                #     continue
-                            
-                            keywords_set.add(keyword)
-                            loaded_count += 1
-                
-                # Final progress update
-                if self.classifier.available and total_processed > 0:
-                    safe_stderr_print(f"\r✅ Loaded keywords: {loaded_count} kept, {filtered_count} filtered from {total_processed} total", flush=True)
-            
-            if self.classifier.available:
-                stats = self.classifier.get_stats()
-                logger.info("=" * 60)
-                logger.info("📊 Sentence Transformers Keyword Pre-filtering Stats")
-                logger.info("=" * 60)
-                logger.info(f"   Total classifications: {stats['classifications']}")
-                logger.info(f"   ✅ Kept (relevant): {stats['kept']}")
-                logger.info(f"   🚫 Filtered (irrelevant): {stats['filtered']}")
-                logger.info(f"   Filter rate: {stats['filter_rate']:.1f}%")
-                logger.info(f"   Total time: {stats['total_time_ms']:.0f}ms")
-                logger.info(f"   Avg time per keyword: {stats['avg_time_ms']:.2f}ms")
-                logger.info("=" * 60)
-        except Exception as e:
-            logger.error(f"Error reading CSV: {e}")
-            raise
-        
-        self.keywords = sorted(list(keywords_set))
-        self.keywords_lower = [k.lower() for k in self.keywords]
-        
-        # Build canonical map and reverse lookup (reuse SkillsDatabase logic)
-        for keyword in self.keywords:
-            keyword_lower = keyword.lower()
-            canonical = self._get_canonical(keyword_lower)
-            self.canonical_map[keyword_lower] = canonical
-            self.reverse_canonical[canonical].append(keyword)
-            
-            # Build O(1) lookup dict (normalized -> original)
-            normalized = self._normalize(keyword_lower)
-            if normalized not in self.keywords_dict:
-                self.keywords_dict[normalized] = keyword
-        
-        self.loaded = True
-        logger.info(f"Loaded {len(self.keywords)} unique keywords")
-        logger.info(f"Canonical forms: {len(self.reverse_canonical)}")
-    
-    def _normalize(self, text: str) -> str:
-        """Normalize text for matching (remove spaces, special chars)"""
-        return re.sub(r'[^a-z0-9]', '', text.lower())
-    
-    def _get_canonical(self, keyword: str) -> str:
-        """Get canonical form of a keyword (reuse SkillsDatabase logic)"""
-        keyword_lower = keyword.lower().strip()
-        
-        # Check direct mapping (reuse CANONICAL_MAP from skills_matcher)
-        if keyword_lower in CANONICAL_MAP:
-            return CANONICAL_MAP[keyword_lower]
-        
-        # Check normalized mapping
-        normalized = self._normalize(keyword_lower)
-        if normalized in CANONICAL_MAP:
-            return CANONICAL_MAP[normalized]
-        
-        # Use ontology if available
-        if self.ontology:
-            canonical = self.ontology.get_canonical(keyword_lower)
-            if canonical:
-                return canonical
-        
-        # Default: return normalized form
-        return normalized
-    
-    def get_canonical_keyword(self, keyword: str) -> Optional[str]:
-        """Get canonical form of a keyword"""
-        keyword_lower = keyword.lower().strip()
-        
-        # Check direct mapping
-        if keyword_lower in self.canonical_map:
-            return self.canonical_map[keyword_lower]
-        
-        # Check normalized
-        normalized = self._normalize(keyword_lower)
-        if normalized in self.keywords_dict:
-            original = self.keywords_dict[normalized]
-            return self.canonical_map.get(original.lower(), original)
-        
-        return None
+_skills_db: Optional[SkillsDatabase] = None
 
-
-# Global instances
-_skills_db_instance: Optional[SkillsDatabase] = None
-_keywords_db_instance: Optional[KeywordsDatabase] = None
 
 def get_skills_database(csv_path: Optional[str] = None) -> SkillsDatabase:
     """Get or create skills database singleton"""
-    global _skills_db_instance
+    global _skills_db
     
-    if _skills_db_instance is None:
+    if _skills_db is None:
         if csv_path is None:
             # Try multiple possible locations for skills.csv
             current_dir = Path(__file__).parent  # backend/nlp_service/
@@ -1889,170 +1791,18 @@ def get_skills_database(csv_path: Optional[str] = None) -> SkillsDatabase:
             logger.warning("   Continuing without semantic filtering...")
         safe_stderr_print("=" * 60, flush=True)
         
-        _skills_db_instance = SkillsDatabase(csv_path_str)
-        _skills_db_instance.load()
-        logger.info(f"Skills database loaded. Classifier available: {_skills_db_instance.classifier.available}")
+        _skills_db = SkillsDatabase(csv_path_str)
+        _skills_db.load()
+        logger.info(f"Skills database loaded. Classifier available: {_skills_db.classifier.available}")
     
-    return _skills_db_instance
-
-
-def get_keywords_database(csv_path: Optional[str] = None) -> KeywordsDatabase:
-    """
-    Get or create global keywords database instance.
-    
-    Args:
-        csv_path: Optional path to keywords CSV (defaults to keywords.csv in nlp_service directory)
-        
-    Returns:
-        KeywordsDatabase instance
-    """
-    global _keywords_db_instance
-    
-    if _keywords_db_instance is not None:
-        return _keywords_db_instance
-    
-    # Determine CSV path
-    if csv_path is None:
-        # Try to find keywords.csv in nlp_service directory
-        script_dir = Path(__file__).parent
-        csv_path = script_dir / "keywords.csv"
-        
-        # Fallback: try skills.csv location if keywords.csv doesn't exist
-        if not csv_path.exists():
-            csv_path = script_dir / "skills.csv"
-    
-    # Try to find ontology
-    script_dir = Path(__file__).parent
-    ontology_path = script_dir / "skill_ontology.json"
-    if not ontology_path.exists():
-        ontology_path = script_dir.parent / "src" / "utils" / "skill_ontology.json"
-        if not ontology_path.exists():
-            ontology_path = None
-    
-    csv_path_str = str(csv_path)
-    ontology_path_str = str(ontology_path) if ontology_path else None
-    
-    _keywords_db_instance = KeywordsDatabase(csv_path_str, ontology_path_str)
-    return _keywords_db_instance
-
-
-# ============================================================================
-# Keyword Extraction with PhraseMatcher
-# ============================================================================
-
-def extract_keywords_with_phrasematcher(
-    text: str,
-    nlp_model,
-    keywords_db: KeywordsDatabase,
-    use_fuzzy: bool = True,
-    use_context_filter: bool = False  # Less strict for keywords
-) -> List[Tuple[str, str, float]]:
-    """
-    Extract keywords from text using spaCy PhraseMatcher (similar to extract_skills_with_phrasematcher).
-    
-    More permissive than skill extraction - designed for comprehensive keyword extraction.
-    
-    Args:
-        text: Input text to extract keywords from
-        nlp_model: Loaded spaCy model
-        keywords_db: KeywordsDatabase instance
-        use_fuzzy: Whether to use fuzzy matching for missed keywords
-        use_context_filter: Whether to use context filtering (default False for keywords)
-    
-    Returns:
-        List of tuples: (matched_keyword, canonical_form, weight)
-    """
-    try:
-        from spacy.matcher import PhraseMatcher
-    except ImportError:
-        logger.error("spacy.matcher.PhraseMatcher not available")
-        raise ImportError("spaCy PhraseMatcher is required. Make sure spaCy is properly installed.")
-    
-    try:
-        if not keywords_db.loaded:
-            keywords_db.load()
-        
-        # Create PhraseMatcher
-        matcher = PhraseMatcher(nlp_model.vocab, attr="LOWER")
-        
-        # Add all keywords as patterns
-        patterns = [nlp_model.make_doc(keyword) for keyword in keywords_db.keywords]
-        matcher.add("KEYWORDS", patterns)
-        
-        # Process text
-        doc = nlp_model(text)
-        
-        # Find matches
-        matches = matcher(doc)
-        
-        text_lower = text.lower()
-        
-        # Extract matched keywords with frequency tracking
-        matched_keywords_data = {}
-        results = []
-        
-        # First pass: Count occurrences and collect spans for each keyword
-        for match_id, start, end in matches:
-            span = doc[start:end]
-            matched_text = span.text.strip()
-            matched_lower = matched_text.lower()
-            
-            # Track frequency
-            if matched_lower not in matched_keywords_data:
-                matched_keywords_data[matched_lower] = {
-                    'text': matched_text,
-                    'frequency': 0,
-                    'spans': []
-                }
-            matched_keywords_data[matched_lower]['frequency'] += 1
-            matched_keywords_data[matched_lower]['spans'].append(span)
-        
-        # Second pass: Process each unique keyword
-        for matched_lower, data in matched_keywords_data.items():
-            matched_text = data['text']
-            frequency = data['frequency']
-            
-            # Get canonical keyword name
-            canonical_keyword = keywords_db.get_canonical_keyword(matched_text)
-            keyword_name = canonical_keyword if canonical_keyword else matched_text
-            
-            # Default weight: 1.0 for keywords (all keywords are equally important)
-            weight = 1.0
-            
-            # Boost weight based on frequency
-            frequency_boost = min((frequency - 1) * 0.5, 2.0)
-            boosted_weight = float(weight) + frequency_boost
-            
-            # Store result
-            results.append((keyword_name, matched_lower, boosted_weight))
-        
-        # Collapse overlapping keywords (reuse logic from skills)
-        # Note: collapse_overlapping_skills expects SkillsDatabase, but we can pass KeywordsDatabase
-        # as it has similar structure (canonical_map, etc.)
-        results = collapse_overlapping_skills(results, keywords_db)  # Reuse function
-        
-        logger.info(f"Extracted {len(results)} keywords from text")
-        
-        return results
-    except (BrokenPipeError, OSError) as e:
-        is_broken_pipe = (
-            isinstance(e, BrokenPipeError) or 
-            (isinstance(e, OSError) and e.errno == 32)
-        )
-        if is_broken_pipe:
-            logger.warning("Broken pipe during keyword extraction, returning empty results")
-            return []
-        raise
-    except Exception as e:
-        logger.error(f"Error extracting keywords: {e}")
-        raise
+    return _skills_db
 
 
 # ============================================================================
 # PhraseMatcher-based Extraction
 # ============================================================================
 
-def collapse_overlapping_skills(skills: List[Tuple[str, str, float]], skills_db) -> List[Tuple[str, str, float]]:
+def collapse_overlapping_skills(skills: List[Tuple[str, str, float]], skills_db: SkillsDatabase) -> List[Tuple[str, str, float]]:
     """
     Problem 2 Fix: Collapse overlapping skills using ontology hierarchy.
     
