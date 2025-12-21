@@ -262,7 +262,7 @@ const ResumeViewer = () => {
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {/* Skills Section - Compact Horizontal Layout */}
+        {/* Keywords Section - Compact Horizontal Layout */}
         {skills.length > 0 && (
           <div style={{ marginBottom: '20px' }}>
             <div style={{ 
@@ -287,7 +287,7 @@ const ResumeViewer = () => {
                   borderRadius: '50%', 
                   display: 'inline-block' 
                 }} />
-                Skills
+                Keywords
               </h4>
               <div style={{
                 fontSize: '11px',
@@ -298,7 +298,7 @@ const ResumeViewer = () => {
               </div>
             </div>
             
-            {/* Skills Grid - Compact Horizontal Layout */}
+            {/* Keywords Grid - Compact Horizontal Layout */}
             <div style={{
               display: 'flex',
               flexWrap: 'wrap',
@@ -339,7 +339,7 @@ const ResumeViewer = () => {
               ))}
             </div>
 
-            {/* Less Important & Non-Technical Skills (Collapsible) */}
+            {/* Less Important & Non-Technical Keywords (Collapsible) */}
             {(lessImportantSkills.length > 0 || nonTechnicalSkills.length > 0) && (
               <details style={{ marginTop: '12px' }}>
                 <summary style={{
@@ -358,7 +358,7 @@ const ResumeViewer = () => {
                   {lessImportantSkills.length > 0 && (
                     <div>
                       <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>
-                        Less Important Skills
+                        Less Important Keywords
                       </div>
                       <div style={{
                         display: 'flex',
@@ -390,7 +390,7 @@ const ResumeViewer = () => {
                   {nonTechnicalSkills.length > 0 && (
                     <div>
                       <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>
-                        Non-Technical Skills
+                        Non-Technical Keywords
                       </div>
                       <div style={{
                         display: 'flex',

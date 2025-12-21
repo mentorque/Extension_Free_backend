@@ -213,13 +213,28 @@ function extractLinkedInDescription(element) {
 // 2.5. Text Normalization Utility (Windows-compatible)
 // -----------------------------------------------------
 // Normalizes text extraction to handle Windows line breaks and whitespace issues
+// Also cleans text for better NLP processing
 function normalizeText(text) {
   if (!text) return '';
-  // Replace all types of whitespace (spaces, tabs, newlines, etc.) with single spaces
+  
+  // First, replace all types of whitespace (spaces, tabs, newlines, etc.) with single spaces
   // This fixes issues on Windows where line breaks might be converted incorrectly
-  return text
+  let normalized = text
     .replace(/[\s\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+/g, ' ') // Replace all whitespace with single space
     .trim();
+  
+  // Remove common HTML artifacts and formatting issues that might interfere with NLP
+  normalized = normalized
+    .replace(/\s*[•·▪▫]\s*/g, ' ') // Remove bullet points
+    .replace(/\s*[–—]\s*/g, ' ') // Normalize dashes
+    .replace(/\s*:\s*/g, ': ') // Normalize colons
+    .replace(/\s*;\s*/g, '; ') // Normalize semicolons
+    .replace(/\s*,\s*/g, ', ') // Normalize commas
+    .replace(/\s*\.\s*/g, '. ') // Normalize periods
+    .replace(/\s+/g, ' ') // Collapse multiple spaces
+    .trim();
+  
+  return normalized;
 }
 
 // -----------------------------------------------------
@@ -448,15 +463,53 @@ function scrapeJobDetailsIndeed() {
   }
   
   // Description - Get container that includes the heading and description
+  // Try multiple selectors for better extraction
   let description = '';
-  const descContainerEl = document.querySelector('#jobDescriptionText');
-  if (descContainerEl) {
-    description = normalizeText(descContainerEl.textContent || descContainerEl.innerText || '');
-  } else {
-    // Fallback: Try getting from heading's parent
+  const descSelectors = [
+    '#jobDescriptionText',
+    '#jobDescriptionTextContainer',
+    '[id*="jobDescription"]',
+    '[class*="jobDescription"]',
+    '[class*="job-description"]',
+    '[data-testid*="job-description"]',
+    '[data-testid*="jobDescription"]',
+    '.jobsearch-jobDescriptionText',
+    '.jobsearch-JobComponent-description'
+  ];
+  
+  for (const selector of descSelectors) {
+    const descContainerEl = document.querySelector(selector);
+    if (descContainerEl) {
+      const text = normalizeText(descContainerEl.textContent || descContainerEl.innerText || '');
+      if (text && text.length > 50) { // Ensure we have substantial content
+        description = text;
+        break;
+      }
+    }
+  }
+  
+  // Fallback: Try getting from heading's parent
+  if (!description || description.length < 50) {
     const headingEl = document.querySelector('#jobDescriptionTitleHeading');
     if (headingEl && headingEl.parentElement) {
-      description = normalizeText(headingEl.parentElement.textContent || headingEl.parentElement.innerText || '');
+      const text = normalizeText(headingEl.parentElement.textContent || headingEl.parentElement.innerText || '');
+      if (text && text.length > 50) {
+        description = text;
+      }
+    }
+  }
+  
+  // Additional fallback: Look for description in main content area
+  if (!description || description.length < 50) {
+    const mainContent = document.querySelector('#jobDescriptionTextContainer, [class*="jobsearch-JobComponent"]');
+    if (mainContent) {
+      // Remove buttons, links, and other non-description elements
+      const clone = mainContent.cloneNode(true);
+      clone.querySelectorAll('button, a[href*="apply"], .indeed-apply-button, [class*="apply"]').forEach(el => el.remove());
+      const text = normalizeText(clone.textContent || clone.innerText || '');
+      if (text && text.length > 50) {
+        description = text;
+      }
     }
   }
   
@@ -533,11 +586,47 @@ function scrapeJobDetailsNaukri() {
     }
   }
   
-  // Description
-  const descEl = document.querySelector('div[class*="dang-inner-html"]') ||
-                 document.querySelector('.job-description') ||
-                 document.querySelector('[class*="JDC"]');
-  const description = descEl ? normalizeText(descEl.textContent || descEl.innerText || '') : '';
+  // Description - Try multiple selectors for better extraction
+  let description = '';
+  const descSelectors = [
+    'div[class*="dang-inner-html"]',
+    '.job-description',
+    '[class*="JDC"]',
+    '[class*="job-description"]',
+    '[class*="jobDescription"]',
+    '[id*="jobDescription"]',
+    '[id*="job-description"]',
+    'div[class*="description"]',
+    '.jd-details',
+    '[class*="jd-details"]'
+  ];
+  
+  for (const selector of descSelectors) {
+    const descEl = document.querySelector(selector);
+    if (descEl) {
+      // Remove buttons and other non-description elements
+      const clone = descEl.cloneNode(true);
+      clone.querySelectorAll('button, a[href*="apply"], [class*="apply"]').forEach(el => el.remove());
+      const text = normalizeText(clone.textContent || clone.innerText || '');
+      if (text && text.length > 50) { // Ensure we have substantial content
+        description = text;
+        break;
+      }
+    }
+  }
+  
+  // Fallback: Try to find description in main content area
+  if (!description || description.length < 50) {
+    const mainContent = document.querySelector('[class*="job-details"], [class*="jobDetails"], main, article');
+    if (mainContent) {
+      const clone = mainContent.cloneNode(true);
+      clone.querySelectorAll('button, a[href*="apply"], header, nav, [class*="apply"]').forEach(el => el.remove());
+      const text = normalizeText(clone.textContent || clone.innerText || '');
+      if (text && text.length > 100) {
+        description = text;
+      }
+    }
+  }
   
   // Validation
   if (!title || !description) {
@@ -740,16 +829,23 @@ function scrapeJobDetailsGlassdoor() {
     'div[class*="JobDescription"]',
     '#JobDescriptionContainer',
     '.JobDetails_jobDetailsContainer__y9P3L div[class*="description"]',
-    'div[class*="JobDetails_jobDetailsContainer"] div[class*="description"]'
+    'div[class*="JobDetails_jobDetailsContainer"] div[class*="description"]',
+    '[class*="job-description"]',
+    '[id*="jobDescription"]',
+    '[id*="job-description"]'
   ];
   
   let description = '';
   for (const selector of descSelectors) {
     const el = document.querySelector(selector);
     if (el) {
-      description = normalizeText(el.textContent || el.innerText || '');
+      // Remove buttons and other non-description elements before extracting text
+      const clone = el.cloneNode(true);
+      clone.querySelectorAll('button, a[href*="apply"], [class*="apply"], [class*="save"]').forEach(n => n.remove());
+      const text = normalizeText(clone.textContent || clone.innerText || '');
       // Make sure we got a substantial description (not just a few words)
-      if (description && description.length > 100) {
+      if (text && text.length > 100) {
+        description = text;
         break;
       }
     }

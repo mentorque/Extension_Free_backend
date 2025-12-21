@@ -890,6 +890,27 @@ const generateKeywords = async (req, res, next) => {
       });
     }
     
+    // Clean and normalize job description for better NLP processing
+    // Remove excessive whitespace, normalize line breaks, and clean common artifacts
+    const cleanedDescription = jobDescription
+      .replace(/[\s\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+/g, ' ') // Normalize all whitespace
+      .replace(/\s*[•·▪▫]\s*/g, ' ') // Remove bullet points
+      .replace(/\s*[–—]\s*/g, ' ') // Normalize dashes
+      .replace(/\s+/g, ' ') // Collapse multiple spaces
+      .trim();
+    
+    // Check if description is too short after cleaning
+    if (!cleanedDescription || cleanedDescription.length < 10) {
+      console.error(`[Keywords] ❌ Validation failed: jobDescription is too short after cleaning`);
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'jobDescription must contain substantial text (at least 10 characters)'
+      });
+    }
+    
+    // Use cleaned description for processing
+    const finalDescription = cleanedDescription;
+    
     if (!Array.isArray(skills)) {
       console.error(`[Keywords] ❌ Validation failed: skills is not an array`);
       return res.status(400).json({
@@ -903,7 +924,7 @@ const generateKeywords = async (req, res, next) => {
     
     console.log(`[Keywords] ✅ Validation passed`);
     console.log(`[Keywords] 📊 Processing:`);
-    console.log(`[Keywords]   - Job description: ${jobDescription.length} chars`);
+    console.log(`[Keywords]   - Job description: ${finalDescription.length} chars (cleaned from ${jobDescription.length} chars)`);
     console.log(`[Keywords]   - Validated skills: ${validatedSkills.length} skills`);
     console.log(`[Keywords]   - NLP service URL: ${NLP_SERVICE_URL}\n`);
     
@@ -939,7 +960,7 @@ const generateKeywords = async (req, res, next) => {
       extractResponse = await axios.post(
         extractSkillsUrl,
         { 
-          text: jobDescription,
+          text: finalDescription,
           use_fuzzy: true
         },
         { 
