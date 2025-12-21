@@ -11,6 +11,7 @@ const { spawn } = require('child_process');
 const NLP_SERVICE_URL = process.env.NLP_SERVICE_URL || 'http://127.0.0.1:8001';
 const NLP_SERVICE_PORT = new URL(NLP_SERVICE_URL).port || '8001';
 const NLP_SERVICE_TIMEOUT = 120000; // 2 minutes
+const HEALTH_CHECK_TIMEOUT = 120000; // 2 minutes for health checks (especially for remote services)
 
 /**
  * Normalize URL by removing trailing slashes
@@ -61,11 +62,15 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = 15000) {
   const normalizedUrl = normalizeUrl(serviceUrl);
   const healthUrl = `${normalizedUrl}/health`;
   
+  // Use longer timeout for remote services (Railway can be slow)
+  const isRemote = isRemoteNlpService(serviceUrl);
+  const requestTimeout = isRemote ? 10000 : 2000; // 10s for remote, 2s for local
+  
   while (Date.now() - startTime < timeoutMs) {
     attemptCount++;
     try {
       const response = await axios.get(healthUrl, { 
-        timeout: 2000,
+        timeout: requestTimeout,
         validateStatus: (status) => status === 200
       });
       
@@ -73,6 +78,7 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = 15000) {
         return true;
       }
     } catch (error) {
+      // Only log every 5 attempts to avoid spam
       if (attemptCount % 5 === 0) {
         const elapsed = Date.now() - startTime;
         console.log(`[uploadResume] ⏳ Waiting for NLP service... (attempt ${attemptCount}, ${elapsed}ms)`);
@@ -101,19 +107,21 @@ function isRemoteNlpService(serviceUrl) {
 }
 
 async function ensureNlpService(serviceUrl) {
-  if (await waitForServiceHealth(serviceUrl, 1500)) {
-    console.log(`[uploadResume] ✅ NLP service is already running`);
-    return;
-  }
-  
-  // If using remote service (Railway, etc.), don't try to spawn locally
+  // If using remote service (Railway, etc.), use longer timeout and don't try to spawn locally
   if (isRemoteNlpService(serviceUrl)) {
     console.log(`[uploadResume] 🌐 Remote service detected, waiting for it to become available...`);
-    const isHealthy = await waitForServiceHealth(serviceUrl, 15000);
+    // Use longer timeout for remote services - Railway can be slow on cold starts
+    const isHealthy = await waitForServiceHealth(serviceUrl, HEALTH_CHECK_TIMEOUT);
     if (!isHealthy) {
       throw new Error(`Remote NLP service at ${serviceUrl} is not available. Please ensure it is deployed and running.`);
     }
     console.log(`[uploadResume] ✅ Remote service is available`);
+    return;
+  }
+  
+  // For local services, check if already running first
+  if (await waitForServiceHealth(serviceUrl, 1500)) {
+    console.log(`[uploadResume] ✅ NLP service is already running`);
     return;
   }
   
