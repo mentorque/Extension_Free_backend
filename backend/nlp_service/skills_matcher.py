@@ -761,10 +761,7 @@ class SkillClassifier:
             
             # Load lightweight model (60MB, fast inference)
             safe_stderr_print("=" * 60)
-            safe_stderr_print("🤖 [Sentence Transformers] Initializing Classifier")
-            safe_stderr_print("=" * 60)
-            safe_stderr_print("📦 Loading model: all-MiniLM-L6-v2")
-            safe_stderr_print("   (This will download ~60MB on first run)")
+            safe_stderr_print("🤖 Initializing Sentence Transformers (model: all-MiniLM-L6-v2, ~60MB)...", flush=True)
             logger.info("=" * 60)
             logger.info("🤖 Initializing Sentence Transformers Classifier")
             logger.info("=" * 60)
@@ -1906,9 +1903,8 @@ def get_skills_database(csv_path: Optional[str] = None) -> SkillsDatabase:
         safe_stderr_print("=" * 60, flush=True)
         
         _skills_db = SkillsDatabase(csv_path_str)
-        safe_stderr_print("[EMBEDDINGS] Loading skills database (this will initialize classifier)...", flush=True)
         _skills_db.load()
-        safe_stderr_print(f"[EMBEDDINGS] Skills database loaded. Classifier available: {_skills_db.classifier.available}", flush=True)
+        logger.info(f"Skills database loaded. Classifier available: {_skills_db.classifier.available}")
     
     return _skills_db
 
