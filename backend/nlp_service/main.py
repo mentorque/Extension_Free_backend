@@ -734,23 +734,40 @@ def extract_keywords_from_text(text: str) -> List[str]:
             if candidate not in {"the", "a", "an", "and", "or", "but", "for", "with", "from"}:
                 should_extract = True
         elif token.pos_ == "NOUN" and len(candidate) >= 3:
-            # More selective: Only extract nouns that are likely to be skills/tools
-            # Must be either:
-            # 1. A known skill head word
-            # 2. Capitalized (likely a technology/tool name)
-            # 3. In a technical context (appears near technical terms)
+            # Extract nouns that could be skills/tools - be more permissive
+            # Extract if:
+            # 1. Known skill head word
+            # 2. Capitalized (likely technology/tool name)
+            # 3. Any noun that's not generic (to catch more skills)
             if candidate in SKILL_HEAD_WORDS:
                 should_extract = True
             elif token.text[0].isupper() and len(candidate) >= 3:
                 # Capitalized nouns are often technology/tool names
-                # Additional filter: skip common capitalized words
                 common_capitalized = {
                     "the", "a", "an", "and", "or", "but", "for", "with", "from",
                     "company", "corporation", "inc", "ltd", "corp", "llc"
                 }
                 if candidate.lower() not in common_capitalized:
                     should_extract = True
-            # Don't extract generic lowercase nouns - too broad
+            elif not is_generic_word(candidate, spacy_stopwords):
+                # Extract any non-generic noun (to catch more skills like "Excel", "Salesforce", etc.)
+                # Filter out very common words
+                common_words = {
+                    "time", "way", "year", "work", "day", "man", "thing", 
+                    "woman", "life", "child", "world", "school", "state", "family",
+                    "student", "group", "country", "problem", "hand", "part", "place",
+                    "case", "week", "company", "system", "program", "question", "right",
+                    "study", "book", "eye", "job", "word", "business", "issue", "side",
+                    "kind", "head", "house", "service", "friend", "father", "power",
+                    "hour", "game", "line", "end", "member", "law", "car", "city",
+                    "community", "name", "president", "team", "minute", "idea", "kid",
+                    "body", "information", "back", "parent", "face", "others", "level",
+                    "office", "door", "health", "person", "art", "war", "history",
+                    "party", "result", "change", "morning", "reason", "research", "girl",
+                    "guy", "moment", "air", "teacher", "force", "education"
+                }
+                if candidate.lower() not in common_words:
+                    should_extract = True
         
         if should_extract:
             add_keyword(candidate)
