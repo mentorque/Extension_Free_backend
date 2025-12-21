@@ -1,0 +1,29 @@
+# NLP Service Requirements
+# Python 3.9+
+
+# FastAPI - Modern web framework for building APIs
+fastapi==0.115.5
+
+# Uvicorn - ASGI server for FastAPI
+uvicorn[standard]==0.32.1
+
+# spaCy - Industrial-strength Natural Language Processing
+spacy==3.7.5
+
+# Pydantic - Data validation using Python type annotations
+pydantic==2.9.2
+
+# RapidFuzz - Fast fuzzy string matching
+rapidfuzz==3.10.1
+
+# Sentence Transformers - Semantic skill matching + skill classification
+sentence-transformers>=5.0.0
+torch>=2.0.0
+
+# Additional dependencies (installed automatically with above packages)
+# - httptools (via uvicorn[standard]) - Fast HTTP parser
+# - uvloop (via uvicorn[standard]) - Fast event loop
+# - watchfiles (via uvicorn[standard]) - File watching for auto-reload
+
+# Note: After installing dependencies, download the spaCy language model with:
+# python -m spacy download en_core_web_sm

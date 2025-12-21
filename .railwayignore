@@ -1,0 +1,20 @@
+# Railway ignore file
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+node_modules/
+.env
+.env.local
+.DS_Store
+*.log
+dist/
+build/
+embeddings_cache/*.npy
+*.npy
+.git/
+.vscode/
+.idea/
+

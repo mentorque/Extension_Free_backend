@@ -1,0 +1,167 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated/prisma"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String       @id @default(cuid())
+  firebaseUid     String       @unique
+  email           String       @unique
+  fullName        String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  goalPerDay      Int          @default(3)
+  mentorId        String?
+  deletedAt       DateTime?
+  verifiedByAdmin Boolean      @default(false)
+  apiKeys         ApiKey[]
+  appliedJobs     AppliedJob[]
+  Progress        Progress?
+  AdminMentor     AdminMentor? @relation(fields: [mentorId], references: [id])
+  UserStatus      UserStatus?
+
+  @@index([firebaseUid])
+  @@index([email])
+  @@index([deletedAt])
+  @@index([mentorId])
+  @@index([verifiedByAdmin])
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  key        String    @unique
+  name       String
+  userId     String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  isActive   Boolean   @default(true)
+  deletedAt  DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([key])
+  @@index([userId])
+  @@index([isActive])
+  @@index([deletedAt])
+}
+
+model AppliedJob {
+  id          String    @id @default(cuid())
+  userId      String
+  title       String
+  company     String?
+  location    String?
+  url         String
+  appliedDate DateTime  @default(now())
+  appliedText String?
+  status      String    @default("Applied")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  type        String    @default("Website")
+  deletedAt   DateTime?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([deletedAt])
+}
+
+model Progress {
+  id        String    @id
+  userId    String    @unique
+  weeks     Json
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+  deletedAt DateTime?
+  User      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([deletedAt])
+}
+
+model AdminMentor {
+  id              String    @id
+  email           String    @unique
+  password        String
+  name            String
+  picture         String?
+  expertise       String?
+  background      String?
+  availability    String?
+  isAdmin         Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime
+  deletedAt       DateTime?
+  company         String?
+  role            String?
+  verifiedByAdmin Boolean   @default(false)
+  User            User[]
+
+  @@index([deletedAt])
+  @@index([email])
+  @@index([isAdmin])
+  @@index([verifiedByAdmin])
+}
+
+model MentorSessionNote {
+  id         String    @id
+  userId     String
+  callNumber Int
+  notes      String    @default("")
+  mentorId   String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime
+  deletedAt  DateTime?
+
+  @@unique([userId, callNumber])
+  @@index([callNumber])
+  @@index([deletedAt])
+  @@index([userId])
+}
+
+model UserStatus {
+  id                             String    @id
+  userId                         String    @unique
+  orientation                    Boolean   @default(false)
+  resumeRebuilding               Boolean   @default(false)
+  eligibleForFirstMentorCall     Boolean   @default(false)
+  resumeConfirmed                Boolean   @default(false)
+  portfolioBuildingAndConfirmed  Boolean   @default(false)
+  eligibleForSecondMentorCall    Boolean   @default(false)
+  paymentMade                    Boolean   @default(false)
+  techDistributionAndExtension   Boolean   @default(false)
+  eligibleForThirdMentorCall     Boolean   @default(false)
+  cheatSheetBuiltOut             Boolean   @default(false)
+  hasAppliedEnoughJobs           Boolean   @default(false)
+  eligibleForFourthMentorCall    Boolean   @default(false)
+  eligibleForFifthMentorCall     Boolean   @default(false)
+  fourthMentorCallCompletedAt    DateTime?
+  createdAt                      DateTime  @default(now())
+  updatedAt                      DateTime
+  deletedAt                      DateTime?
+  fifthMentorCallCompletedAt     DateTime?
+  firstMentorCallCompletedAt     DateTime?
+  secondMentorCallCompletedAt    DateTime?
+  thirdMentorCallCompletedAt     DateTime?
+  fifthMentorCallGoogleMeetLink  String?
+  fifthMentorCallScheduledAt     DateTime?
+  finalReview                    Boolean   @default(false)
+  firstMentorCallGoogleMeetLink  String?
+  firstMentorCallScheduledAt     DateTime?
+  fourthMentorCallGoogleMeetLink String?
+  fourthMentorCallScheduledAt    DateTime?
+  secondMentorCallGoogleMeetLink String?
+  secondMentorCallScheduledAt    DateTime?
+  thirdMentorCallGoogleMeetLink  String?
+  thirdMentorCallScheduledAt     DateTime?
+  User                           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([deletedAt])
+  @@index([userId])
+}

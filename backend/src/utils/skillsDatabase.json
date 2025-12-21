@@ -1,0 +1,68 @@
+{
+  "programming_languages": [
+    "Python", "Java", "JavaScript", "TypeScript", "C++", "C#", ".NET", "Ruby", "PHP", "Go", "Golang", "Rust", "Kotlin", "Swift", "Scala", "R", "Perl", "Shell", "Bash", "PowerShell"
+  ],
+  "frameworks": [
+    "React", "Angular", "Vue.js", "Node.js", "Next.js", "Express.js", "Django", "Flask", "FastAPI", "Spring Boot", "ASP.NET", ".NET Core", "Laravel", "Symfony", "Ruby on Rails", "Ember.js", "Svelte"
+  ],
+  "databases": [
+    "SQL", "MySQL", "PostgreSQL", "MongoDB", "Oracle", "SQL Server", "SQLite", "MariaDB", "Redis", "Cassandra", "DynamoDB", "Elasticsearch", "Neo4j", "CouchDB", "Firebase", "Firestore", "Cosmos DB", "Snowflake", "Redshift", "BigQuery", "HBase", "InfluxDB"
+  ],
+  "cloud_platforms": [
+    "AWS", "Amazon Web Services", "Azure", "GCP", "Google Cloud", "EC2", "S3", "Lambda", "CloudFormation", "Terraform", "Kubernetes", "Docker", "OpenShift", "Heroku", "DigitalOcean", "Linode"
+  ],
+  "devops_tools": [
+    "Docker", "Kubernetes", "K8s", "Jenkins", "GitLab CI", "GitHub Actions", "CircleCI", "Travis CI", "Ansible", "Puppet", "Chef", "Terraform", "Vagrant", "Prometheus", "Grafana", "ELK Stack", "Splunk", "Nagios", "Zabbix"
+  ],
+  "data_science": [
+    "Python", "R", "Pandas", "NumPy", "Scikit-learn", "TensorFlow", "PyTorch", "Keras", "Matplotlib", "Seaborn", "Jupyter", "R Studio", "SAS", "SPSS", "MATLAB", "Apache Spark", "Hadoop", "Kafka", "Airflow"
+  ],
+  "bi_tools": [
+    "Tableau", "Power BI", "Looker", "QlikView", "Qlik Sense", "Sisense", "Domo", "MicroStrategy", "SAP Analytics Cloud", "Oracle Analytics", "IBM Cognos", "Google Data Studio"
+  ],
+  "enterprise_systems": [
+    "SAP", "Oracle ERP", "Salesforce", "ServiceNow", "Workday", "Microsoft Dynamics", "Sage", "NetSuite", "Infor", "Epicor", "Acumatica"
+  ],
+  "salesforce": [
+    "Salesforce", "Salesforce Service Cloud", "Salesforce Sales Cloud", "Salesforce Marketing Cloud", "Salesforce Experience Cloud", "Apex", "Lightning", "Visualforce", "Salesforce Knowledge", "Service Cloud", "Experience Cloud"
+  ],
+  "testing": [
+    "Selenium", "Jest", "JUnit", "TestNG", "Cypress", "Playwright", "Pytest", "Mocha", "Chai", "Karma", "Jasmine", "RSpec", "Cucumber", "Postman", "SoapUI", "JMeter", "LoadRunner"
+  ],
+  "project_management": [
+    "Agile", "Scrum", "Kanban", "Waterfall", "Jira", "Confluence", "Asana", "Trello", "Monday.com", "Microsoft Project", "Smartsheet", "Basecamp", "ClickUp", "Notion"
+  ],
+  "version_control": [
+    "Git", "GitHub", "GitLab", "Bitbucket", "SVN", "Mercurial", "Perforce"
+  ],
+  "apis": [
+    "REST API", "GraphQL", "SOAP", "gRPC", "WebSocket", "RESTful", "API Design", "OpenAPI", "Swagger", "Postman"
+  ],
+  "web_technologies": [
+    "HTML", "CSS", "JavaScript", "TypeScript", "SASS", "SCSS", "LESS", "Bootstrap", "Tailwind CSS", "Webpack", "Vite", "Babel", "ES6", "jQuery"
+  ],
+  "mobile": [
+    "iOS", "Android", "React Native", "Flutter", "Xamarin", "Ionic", "Swift", "Kotlin", "Objective-C", "Java"
+  ],
+  "ai_ml": [
+    "Machine Learning", "Deep Learning", "Artificial Intelligence", "NLP", "Natural Language Processing", "Computer Vision", "Neural Networks", "LLM", "Large Language Models", "Generative AI", "Prompt Engineering", "TensorFlow", "PyTorch", "Scikit-learn"
+  ],
+  "business_analysis": [
+    "Business Analysis", "Requirements Gathering", "Requirements Elicitation", "Functional Requirements", "User Stories", "Use Cases", "UML", "BPMN", "Process Mapping", "Gap Analysis", "Stakeholder Management", "Root Cause Analysis", "RCA", "FSD", "FRD", "Functional Specification"
+  ],
+  "banking_finance": [
+    "SWIFT", "ISO 20022", "SEPA", "ACH", "Cash Collections", "Cheque Collections", "Electronic Collections", "Supply Chain Finance", "Trade Finance", "Liquidity Management", "Cash Management", "Treasury Management", "Treasury Operations", "Channel Banking", "Core Banking", "Internet Banking", "Mobile Banking", "Online Banking", "Host-to-Host", "Payment Processing", "Payment Gateway", "Wire Transfer", "Real-Time Payments", "Instant Payments", "Sweeps", "Pooling", "Fraud Detection", "AML", "Anti-Money Laundering", "KYC", "Know Your Customer", "RDBMS"
+  ],
+  "certifications": [
+    "PMP", "CSM", "ITIL", "Six Sigma", "AWS Certified", "Azure Certified", "Google Cloud Certified", "Salesforce Certified", "Oracle Certified", "CISSP", "CISM"
+  ],
+  "methodologies": [
+    "Agile", "Scrum", "Kanban", "Waterfall", "DevOps", "CI/CD", "Continuous Integration", "Continuous Deployment", "Lean", "Six Sigma", "ITIL"
+  ],
+  "other_skills": [
+    "Microservices", "Serverless", "Event-Driven Architecture", "Domain-Driven Design", "Design Patterns", "SOLID Principles", "Clean Code", "Code Review", "Pair Programming", "TDD", "Test-Driven Development", "BDD", "Behavior-Driven Development", "Technical Writing", "Documentation", "System Design", "Architecture", "Performance Optimization", "Security", "Cybersecurity", "Network Security", "Cloud Security", "Data Security", "Encryption", "Authentication", "Authorization", "OAuth", "JWT", "LDAP", "Active Directory"
+  ]
+}
+
+
+
