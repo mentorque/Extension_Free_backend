@@ -660,18 +660,14 @@ def extract_keywords_from_text(text: str) -> List[str]:
     pattern_matched_keywords: Set[str] = set()
     
     def add_keyword(raw_text: str, is_pattern_match: bool = False) -> None:
-        """Add a keyword to the frequency counter if valid"""
+        """Add a keyword to the frequency counter if valid (very lenient)"""
         normalized = normalize_keyword(raw_text)
         
         if not normalized:
             return
         
-        # Check if phrase contains at least one non-generic token
-        tokens = [t for t in re.split(r"\s+", normalized) if t]
-        if not tokens:
-            return
-        
-        if all(is_generic_word(t, spacy_stopwords) for t in tokens):
+        # Very lenient: only check if it's not empty and has at least one alphanumeric character
+        if not re.search(r"[a-z0-9]", normalized):
             return
         
         # Increment frequency (give pattern matches bonus points)
@@ -689,12 +685,14 @@ def extract_keywords_from_text(text: str) -> List[str]:
             add_keyword(match.group(0), is_pattern_match=True)
     
     # ========================================================================
-    # Strategy 2: Single-Token Keywords (Technical Terms and Capitalized Terms)
+    # Strategy 2: Single-Token Keywords (Very Lenient - Extract All Nouns)
     # ========================================================================
-    # Extract technical terms more dynamically:
-    # 1. Known skill head words (existing logic)
-    # 2. Capitalized terms (often technology names: "SAP", "Oracle", "Salesforce")
-    # 3. Terms that appear in technical contexts
+    # Extract all nouns and proper nouns - very lenient approach
+    # Only filter out very obvious stopwords and very short tokens
+    minimal_stopwords = {
+        "the", "a", "an", "and", "or", "but", "for", "with", "from", "to", "of", "in", "on", "at", "by"
+    }
+    
     for token in doc:
         # Skip whitespace, punctuation, and numbers
         if token.is_space or token.is_punct or token.like_num:
@@ -704,61 +702,35 @@ def extract_keywords_from_text(text: str) -> List[str]:
         lemma = token.lemma_ if token.lemma_ else token.text
         candidate = normalize_keyword(lemma)
         
-        # Filter generic words
-        if is_generic_word(candidate, spacy_stopwords):
+        # Very lenient filtering - only filter out:
+        # 1. Very short tokens (1-2 characters)
+        # 2. Minimal stopwords
+        # 3. Tokens that are mostly punctuation
+        if len(candidate) <= 2:
             continue
         
-        # Extract if:
-        # 1. It's a known skill head word
-        # 2. It's a proper noun (PROPN) - often technology names (but filter common company names)
-        # 3. It's a noun that's capitalized in the original text (likely a technology)
-        # 4. NEW: It's any noun that's not generic (less strict)
+        if not re.search(r"[a-z0-9]", candidate):
+            continue
+        
+        # Extract ALL nouns and proper nouns (very lenient)
         should_extract = False
         
-        if candidate in SKILL_HEAD_WORDS:
-            should_extract = True
-        elif token.pos_ == "PROPN":
-            # Proper nouns are often technology names
-            # Filter out common company/location names by checking if it's short and technical-looking
-            if len(candidate) >= 2 and len(candidate) <= 20:  # Increased from 15 to 20
-                # Check if it looks like a technology name (not a common word)
-                if candidate.isalpha() and not candidate.lower() in {"inc", "ltd", "corp", "llc", "usa", "uk", "eu", "company", "corporation"}:
-                    should_extract = True
-        elif token.pos_ == "NOUN" and token.text[0].isupper() and len(candidate) >= 3:
-            # Capitalized nouns are often technology names
-            # But skip if it's a common word that's just capitalized
-            if candidate not in {"the", "a", "an", "and", "or", "but", "for", "with", "from"}:
+        if token.pos_ == "NOUN" or token.pos_ == "PROPN":
+            # Only skip if it's a minimal stopword
+            if candidate.lower() not in minimal_stopwords:
                 should_extract = True
-        elif token.pos_ == "NOUN" and len(candidate) >= 3:
-            # NEW: Extract any noun that's not generic (less strict)
-            # This catches more technical terms that might be skills
-            if not is_generic_word(candidate, spacy_stopwords):
-                # Additional check: skip if it's a very common word
-                common_words = {
-                    "time", "way", "year", "work", "government", "day", "man", "thing", 
-                    "woman", "life", "child", "world", "school", "state", "family",
-                    "student", "group", "country", "problem", "hand", "part", "place",
-                    "case", "week", "company", "system", "program", "question", "right",
-                    "study", "book", "eye", "job", "word", "business", "issue", "side",
-                    "kind", "head", "house", "service", "friend", "father", "power",
-                    "hour", "game", "line", "end", "member", "law", "car", "city",
-                    "community", "name", "president", "team", "minute", "idea", "kid",
-                    "body", "information", "back", "parent", "face", "others", "level",
-                    "office", "door", "health", "person", "art", "war", "history",
-                    "party", "result", "change", "morning", "reason", "research", "girl",
-                    "guy", "moment", "air", "teacher", "force", "education"
-                }
-                if candidate not in common_words:
-                    should_extract = True
         
         if should_extract:
             add_keyword(candidate)
     
     # ========================================================================
-    # Strategy 3: Multi-Word Noun Phrases (Skills and Knowledge Areas)
+    # Strategy 3: Multi-Word Noun Phrases (Very Lenient - Extract All Noun Phrases)
     # ========================================================================
-    # More permissive: Extract noun phrases that look like skills
-    # Not just those with known skill head words
+    # Very lenient: Extract all noun phrases that contain nouns
+    minimal_stopwords = {
+        "the", "a", "an", "and", "or", "but", "for", "with", "from", "to", "of", "in", "on", "at", "by"
+    }
+    
     for chunk in doc.noun_chunks:
         tokens = [t for t in chunk if not t.is_punct and not t.is_space]
         
@@ -772,8 +744,8 @@ def extract_keywords_from_text(text: str) -> List[str]:
         if not tokens:
             continue
         
-        # Limit phrase length (2-5 tokens for multi-word skills - increased from 4 to 5)
-        if len(tokens) < 2 or len(tokens) > 5:
+        # Limit phrase length (2-6 tokens for multi-word phrases - more lenient)
+        if len(tokens) < 2 or len(tokens) > 6:
             continue
         
         # Must end with a noun or proper noun
@@ -781,7 +753,7 @@ def extract_keywords_from_text(text: str) -> List[str]:
             continue
         
         # Must contain at least one noun
-        if not any(t.pos_ == "NOUN" for t in tokens):
+        if not any(t.pos_ in {"NOUN", "PROPN"} for t in tokens):
             continue
         
         # Build lemma-based phrase
@@ -791,50 +763,13 @@ def extract_keywords_from_text(text: str) -> List[str]:
         ]
         phrase = normalize_keyword(" ".join(lemmas))
         
-        # Check if the head word is generic
-        last_word = tokens[-1].lemma_.lower() if tokens[-1].lemma_ else tokens[-1].text.lower()
-        
-        if is_generic_word(last_word, spacy_stopwords):
+        # Very lenient: Extract if phrase contains at least one noun and doesn't start with minimal stopwords
+        # Only skip if all words are minimal stopwords
+        if all(w in minimal_stopwords for w in lemmas):
             continue
         
-        # More permissive extraction:
-        # 1. Has known skill head word (original logic)
-        # 2. Has technical modifier (original logic)
-        # 3. NEW: Contains proper noun (often technology names in phrases)
-        # 4. NEW: Multi-word phrase with technical-looking words
-        has_skill_word = last_word in SKILL_HEAD_WORDS or any(w in SKILL_HEAD_WORDS for w in lemmas)
-        
-        # Technical modifiers
-        specific_skill_modifiers = {
-            "data", "business", "project", "technical", "product", 
-            "cloud", "digital", "database", "api", "machine", "artificial",
-            "network", "cyber", "quality", "performance", "user",
-            # Banking and Finance modifiers
-            "cash", "treasury", "liquidity", "payment", "trade", "supply", "chain",
-            "financial", "banking", "channel", "electronic", "mobile", "internet",
-            # Requirements and Analysis modifiers
-            "functional", "requirement", "requirements", "solution", "workflow",
-            "stakeholder", "root", "cause", "defect", "test",
-            # Additional technical terms
-            "software", "application", "system", "platform", "framework", "library",
-            "tool", "service", "infrastructure", "architecture", "security",
-            "automation", "integration", "deployment", "development", "testing"
-        }
-        has_technical_modifier = any(w in specific_skill_modifiers for w in lemmas) and last_word in SKILL_HEAD_WORDS
-        
-        # NEW: Contains proper noun (technology names in phrases like "Salesforce CRM")
-        has_proper_noun = any(t.pos_ == "PROPN" for t in tokens)
-        
-        # NEW: Multi-word phrase that doesn't look generic
-        # Check if at least one word is not generic
-        has_non_generic_word = any(not is_generic_word(w, spacy_stopwords) for w in lemmas)
-        
-        # Extract if any condition is met (MORE PERMISSIVE)
-        # Also extract if phrase has at least 2 non-generic words (less strict)
-        has_multiple_non_generic = sum(1 for w in lemmas if not is_generic_word(w, spacy_stopwords)) >= 2
-        
-        if has_skill_word or has_technical_modifier or (has_proper_noun and has_non_generic_word) or has_multiple_non_generic:
-            add_keyword(phrase)
+        # Extract all noun phrases (very lenient)
+        add_keyword(phrase)
     
     # ========================================================================
     # Strategy 4: Named Entities (Products, Languages, and Organizations that are Technologies)

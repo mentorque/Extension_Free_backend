@@ -28,3 +28,4 @@ python3 precompute_embeddings.py
 echo ""
 echo "Done! Check embeddings_cache/ directory for .npy files"
 
+
