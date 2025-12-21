@@ -2117,12 +2117,6 @@ def extract_skills_with_phrasematcher(
         matches = matcher(doc)
     
         # Log total matches found and check for specific skills
-        safe_stderr_print(f"[EMBEDDINGS] PhraseMatcher found {len(matches)} raw matches", flush=True)
-    
-        # Debug: Check if "spring boot" is in the skills database
-        spring_boot_in_db = any("spring boot" in skill.lower() for skill in skills_db.skills)
-        # Removed verbose debug logging
-    
         # Removed verbose debug logging
         text_lower = text.lower()
     
