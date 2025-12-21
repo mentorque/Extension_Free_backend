@@ -753,10 +753,19 @@ class SkillClassifier:
             
             start_time = time.time()
             
-            # Try to load cached embeddings first
+            # Try to load cached embeddings first (pre-computed on laptop)
             if self._load_embeddings_from_cache():
-                safe_stderr_print("✅ Loaded embeddings from cache", flush=True)
-                logger.info("✅ Loaded embeddings from cache")
+                safe_stderr_print("✅ Loaded pre-computed embeddings from cache (no computation needed)", flush=True)
+                logger.info("✅ Loaded pre-computed embeddings from cache - server skipped computation")
+                # Still need to load model for classification (but embeddings are already computed)
+                try:
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        self.model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+                    logger.info("✅ Model loaded for classification (embeddings already cached)")
+                except Exception as e:
+                    logger.warning(f"Could not load model for classification: {e}")
+                    self.model = None
                 return
             
             # Load lightweight model (60MB, fast inference)

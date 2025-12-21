@@ -185,13 +185,29 @@ def load_spacy_model():
 
 @app.on_event("startup")
 async def startup_event():
-    """Pre-load the spaCy model at startup to avoid delays on first request"""
+    """Pre-load the spaCy model and embeddings at startup to avoid delays on first request"""
     try:
         load_spacy_model()
         logger.info("NLP service startup complete")
-        logger.info("Embeddings will be computed on first request and cached")
+        
+        # Pre-load skills database (this loads embeddings from cache if available)
+        try:
+            from .skills_matcher import get_skills_database
+        except ImportError:
+            from skills_matcher import get_skills_database
+        
+        skills_db = get_skills_database()
+        if skills_db and skills_db.classifier and skills_db.classifier.available:
+            if (skills_db.classifier.important_tech_embeddings is not None and
+                skills_db.classifier.less_important_tech_embeddings is not None and
+                skills_db.classifier.non_tech_embeddings is not None):
+                logger.info("✅ Pre-computed embeddings loaded from cache - no computation needed")
+            else:
+                logger.warning("⚠️  Embeddings cache not found - will compute on first request (slow)")
+        else:
+            logger.warning("⚠️  Sentence Transformers not available - using rule-based filters only")
     except Exception as e:
-        logger.error(f"Warning: Failed to pre-load spaCy model during startup: {e}")
+        logger.error(f"Warning: Failed to pre-load during startup: {e}")
 
 
 # ============================================================================
