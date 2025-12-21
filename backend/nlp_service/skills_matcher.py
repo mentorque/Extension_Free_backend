@@ -771,7 +771,7 @@ class SkillClassifier:
             logger.info("📦 Loading model: all-MiniLM-L6-v2")
             logger.info("   (This will download ~60MB on first run)")
             
-            safe_stderr_print("⏳ Loading model (this may take 30-60 seconds on first run)...", flush=True)
+            safe_stderr_print("\r⏳ Loading model (30-60s on first run)...", end='', flush=True)
             try:
                 # Suppress all warnings during model loading
                 with warnings.catch_warnings():
@@ -788,7 +788,7 @@ class SkillClassifier:
                 self.available = False
                 return
             model_load_time = (time.time() - start_time) * 1000
-            safe_stderr_print(f"✅ Model loaded in {model_load_time:.0f}ms", flush=True)
+            safe_stderr_print(f"\r✅ Model loaded in {model_load_time:.0f}ms", flush=True)
             logger.info(f"✅ Model loaded in {model_load_time:.0f}ms")
             
             # Important Technical skill exemplars (Core languages, major frameworks, important tools - High priority)
@@ -895,23 +895,13 @@ class SkillClassifier:
             ]
             
             # Pre-compute embeddings (once at startup) - Three categories
-            safe_stderr_print("=" * 60, flush=True)
-            safe_stderr_print("🔄 [EMBEDDINGS] Starting pre-computation for 3 categories...", flush=True)
-            safe_stderr_print(f"   - Important Tech: {len(self.important_tech_examples)} examples", flush=True)
-            safe_stderr_print(f"   - Less Important Tech: {len(self.less_important_tech_examples)} examples", flush=True)
-            safe_stderr_print(f"   - Non-Tech: {len(self.non_technical_examples)} examples", flush=True)
-            safe_stderr_print("=" * 60, flush=True)
-            logger.info("=" * 60)
-            logger.info("🔄 Pre-computing embeddings for 3 categories...")
-            logger.info(f"   - Important Tech: {len(self.important_tech_examples)}")
-            logger.info(f"   - Less Important Tech: {len(self.less_important_tech_examples)}")
-            logger.info(f"   - Non-Tech: {len(self.non_technical_examples)}")
-            logger.info("=" * 60)
+            total_examples = len(self.important_tech_examples) + len(self.less_important_tech_examples) + len(self.non_technical_examples)
+            logger.info(f"🔄 Pre-computing embeddings: {total_examples} total examples across 3 categories")
             
             # Verify model is available before starting
             if self.model is None:
                 error_msg = "❌ Model is None - cannot compute embeddings"
-                safe_stderr_print(f"   {error_msg}", flush=True)
+                safe_stderr_print(f"\r{error_msg}", flush=True)
                 logger.error(error_msg)
                 self.available = False
                 return
@@ -920,8 +910,8 @@ class SkillClassifier:
             
             # Compute Important Tech embeddings (Section 1)
             try:
-                safe_stderr_print("   🔄 Computing Important Tech embeddings (Section 1)...", flush=True)
-                logger.info("   Computing Important Tech embeddings (Section 1)...")
+                safe_stderr_print(f"\r🔄 Computing embeddings: 1/3 (33%) - Important Tech ({len(self.important_tech_examples)} examples)...", end='', flush=True)
+                logger.info("Computing Important Tech embeddings...")
                 self.important_tech_embeddings = self.model.encode(
                     self.important_tech_examples,
                     convert_to_tensor=True,
@@ -931,26 +921,25 @@ class SkillClassifier:
                 if self.important_tech_embeddings is None:
                     raise ValueError("Important tech embeddings returned None")
                 important_tech_time = (time.time() - embed_start) * 1000
-                safe_stderr_print(f"   ✅ Important Tech embeddings computed in {important_tech_time:.0f}ms", flush=True)
-                logger.info(f"   ✅ Important Tech embeddings computed in {important_tech_time:.0f}ms")
+                logger.info(f"✅ Important Tech embeddings computed in {important_tech_time:.0f}ms")
             except (BrokenPipeError, OSError) as e:
                 if isinstance(e, OSError) and e.errno != 32:
                     raise
-                safe_stderr_print("   ❌ Broken pipe during Important Tech embedding computation", flush=True)
+                safe_stderr_print(f"\r❌ Error: Broken pipe during Important Tech embedding computation", flush=True)
                 logger.warning("Broken pipe during Important Tech embedding computation")
                 self.important_tech_embeddings = None
             except Exception as e:
-                safe_stderr_print(f"   ❌ Error computing Important Tech embeddings: {e}", flush=True)
+                safe_stderr_print(f"\r❌ Error computing Important Tech embeddings: {e}", flush=True)
                 logger.error(f"Error computing Important Tech embeddings: {e}")
                 import traceback
-                logger.error(f"   Traceback: {traceback.format_exc()}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 self.important_tech_embeddings = None
             
             # Compute Less Important Tech embeddings (Section 2)
             try:
                 less_important_start = time.time()
-                safe_stderr_print("   🔄 Computing Less Important Tech embeddings (Section 2)...", flush=True)
-                logger.info("   Computing Less Important Tech embeddings (Section 2)...")
+                safe_stderr_print(f"\r🔄 Computing embeddings: 2/3 (67%) - Less Important Tech ({len(self.less_important_tech_examples)} examples)...", end='', flush=True)
+                logger.info("Computing Less Important Tech embeddings...")
                 self.less_important_tech_embeddings = self.model.encode(
                     self.less_important_tech_examples,
                     convert_to_tensor=True,
@@ -960,26 +949,25 @@ class SkillClassifier:
                 if self.less_important_tech_embeddings is None:
                     raise ValueError("Less important tech embeddings returned None")
                 less_important_time = (time.time() - less_important_start) * 1000
-                safe_stderr_print(f"   ✅ Less Important Tech embeddings computed in {less_important_time:.0f}ms", flush=True)
-                logger.info(f"   ✅ Less Important Tech embeddings computed in {less_important_time:.0f}ms")
+                logger.info(f"✅ Less Important Tech embeddings computed in {less_important_time:.0f}ms")
             except (BrokenPipeError, OSError) as e:
                 if isinstance(e, OSError) and e.errno != 32:
                     raise
-                safe_stderr_print("   ❌ Broken pipe during Less Important Tech embedding computation", flush=True)
+                safe_stderr_print(f"\r❌ Error: Broken pipe during Less Important Tech embedding computation", flush=True)
                 logger.warning("Broken pipe during Less Important Tech embedding computation")
                 self.less_important_tech_embeddings = None
             except Exception as e:
-                safe_stderr_print(f"   ❌ Error computing Less Important Tech embeddings: {e}", flush=True)
+                safe_stderr_print(f"\r❌ Error computing Less Important Tech embeddings: {e}", flush=True)
                 logger.error(f"Error computing Less Important Tech embeddings: {e}")
                 import traceback
-                logger.error(f"   Traceback: {traceback.format_exc()}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 self.less_important_tech_embeddings = None
             
             # Compute Non-Tech embeddings (Section 3)
             try:
                 non_tech_start = time.time()
-                safe_stderr_print("   🔄 Computing Non-Tech embeddings (Section 3)...", flush=True)
-                logger.info("   Computing Non-Tech embeddings (Section 3)...")
+                safe_stderr_print(f"\r🔄 Computing embeddings: 3/3 (100%) - Non-Tech ({len(self.non_technical_examples)} examples)...", end='', flush=True)
+                logger.info("Computing Non-Tech embeddings...")
                 self.non_tech_embeddings = self.model.encode(
                     self.non_technical_examples,
                     convert_to_tensor=True,
@@ -989,19 +977,18 @@ class SkillClassifier:
                 if self.non_tech_embeddings is None:
                     raise ValueError("Non-tech embeddings returned None")
                 non_tech_time = (time.time() - non_tech_start) * 1000
-                safe_stderr_print(f"   ✅ Non-Tech embeddings computed in {non_tech_time:.0f}ms", flush=True)
-                logger.info(f"   ✅ Non-Tech embeddings computed in {non_tech_time:.0f}ms")
+                logger.info(f"✅ Non-Tech embeddings computed in {non_tech_time:.0f}ms")
             except (BrokenPipeError, OSError) as e:
                 if isinstance(e, OSError) and e.errno != 32:
                     raise
-                safe_stderr_print("   ❌ Broken pipe during Non-Tech embedding computation", flush=True)
+                safe_stderr_print(f"\r❌ Error: Broken pipe during Non-Tech embedding computation", flush=True)
                 logger.warning("Broken pipe during Non-Tech embedding computation")
                 self.non_tech_embeddings = None
             except Exception as e:
-                safe_stderr_print(f"   ❌ Error computing Non-Tech embeddings: {e}", flush=True)
+                safe_stderr_print(f"\r❌ Error computing Non-Tech embeddings: {e}", flush=True)
                 logger.error(f"Error computing Non-Tech embeddings: {e}")
                 import traceback
-                logger.error(f"   Traceback: {traceback.format_exc()}")
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 self.non_tech_embeddings = None
             
             # Create combined tech embeddings for backwards compatibility
@@ -1059,7 +1046,7 @@ class SkillClassifier:
             
             embed_time = (time.time() - embed_start) * 1000
             total_init_time = (time.time() - start_time) * 1000
-            safe_stderr_print(f"✅ All 3 embedding sections computed successfully in {embed_time:.0f}ms", flush=True)
+            safe_stderr_print(f"\r✅ Embeddings computed: 3/3 (100%) - Completed in {embed_time:.0f}ms", flush=True)
             
             # Save embeddings to cache for future use
             try:
@@ -1069,8 +1056,7 @@ class SkillClassifier:
             except Exception as e:
                 logger.warning(f"Failed to save embeddings to cache: {e}")
             
-            safe_stderr_print(f"✅ Skill classifier ready (total init: {total_init_time:.0f}ms)", flush=True)
-            safe_stderr_print("=" * 60, flush=True)
+            safe_stderr_print(f"\r✅ Skill classifier ready (total init: {total_init_time:.0f}ms)", flush=True)
             logger.info(f"✅ All 3 embedding sections computed successfully in {embed_time:.0f}ms")
             logger.info(f"✅ Skill classifier ready (total init: {total_init_time:.0f}ms)")
             logger.info("=" * 60)
