@@ -12,8 +12,9 @@ node_modules/
 *.log
 dist/
 build/
-embeddings_cache/*.npy
-*.npy
+# Embeddings cache files are included (pre-computed on laptop)
+# embeddings_cache/*.npy
+# *.npy
 .git/
 .vscode/
 .idea/
