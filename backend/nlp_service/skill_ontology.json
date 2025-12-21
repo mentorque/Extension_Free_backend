@@ -1,0 +1,172 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "description": "Skill ontology for hierarchical skill matching and weighting",
+    "last_updated": "2025-01-18"
+  },
+  "skills": {
+    "java": {
+      "type": "language",
+      "weight": 3,
+      "aliases": ["java se", "java ee", "j2ee"],
+      "parents": [],
+      "children": ["spring", "spring boot", "hibernate", "jpa"]
+    },
+    "spring boot": {
+      "type": "framework",
+      "weight": 2,
+      "aliases": ["spring-boot", "springboot"],
+      "parents": ["spring", "java"],
+      "children": []
+    },
+    "spring": {
+      "type": "framework",
+      "weight": 2,
+      "aliases": ["spring framework"],
+      "parents": ["java"],
+      "children": ["spring boot", "spring mvc", "spring security"]
+    },
+    "python": {
+      "type": "language",
+      "weight": 3,
+      "aliases": ["py", "python3", "python 3"],
+      "parents": [],
+      "children": ["django", "flask", "fastapi", "pandas", "numpy", "tensorflow", "pytorch"]
+    },
+    "django": {
+      "type": "framework",
+      "weight": 2,
+      "aliases": [],
+      "parents": ["python"],
+      "children": []
+    },
+    "flask": {
+      "type": "framework",
+      "weight": 2,
+      "aliases": [],
+      "parents": ["python"],
+      "children": []
+    },
+    "javascript": {
+      "type": "language",
+      "weight": 3,
+      "aliases": ["js", "ecmascript"],
+      "parents": [],
+      "children": ["react", "angular", "vue", "node", "node.js", "express", "next.js"]
+    },
+    "react": {
+      "type": "framework",
+      "weight": 2,
+      "aliases": ["react.js", "reactjs"],
+      "parents": ["javascript"],
+      "children": ["react native", "next.js"]
+    },
+    "node": {
+      "type": "runtime",
+      "weight": 2,
+      "aliases": ["node.js", "nodejs", "node js"],
+      "parents": ["javascript"],
+      "children": ["express"]
+    },
+    "express": {
+      "type": "framework",
+      "weight": 2,
+      "aliases": ["express.js", "expressjs"],
+      "parents": ["node", "javascript"],
+      "children": []
+    },
+    "angular": {
+      "type": "framework",
+      "weight": 2,
+      "aliases": ["angular.js", "angularjs"],
+      "parents": ["javascript"],
+      "children": []
+    },
+    "vue": {
+      "type": "framework",
+      "weight": 2,
+      "aliases": ["vue.js", "vuejs"],
+      "parents": ["javascript"],
+      "children": []
+    },
+    "typescript": {
+      "type": "language",
+      "weight": 3,
+      "aliases": ["ts"],
+      "parents": [],
+      "children": []
+    },
+    "sql": {
+      "type": "language",
+      "weight": 2,
+      "aliases": ["structured query language"],
+      "parents": [],
+      "children": ["mysql", "postgresql", "sql server", "oracle"]
+    },
+    "mysql": {
+      "type": "database",
+      "weight": 1,
+      "aliases": [],
+      "parents": ["sql"],
+      "children": []
+    },
+    "postgresql": {
+      "type": "database",
+      "weight": 1,
+      "aliases": ["postgres", "pgsql"],
+      "parents": ["sql"],
+      "children": []
+    },
+    "mongodb": {
+      "type": "database",
+      "weight": 1,
+      "aliases": ["mongo"],
+      "parents": [],
+      "children": []
+    },
+    "aws": {
+      "type": "platform",
+      "weight": 1,
+      "aliases": ["amazon web services"],
+      "parents": [],
+      "children": ["ec2", "s3", "lambda", "rds"]
+    },
+    "docker": {
+      "type": "tool",
+      "weight": 1,
+      "aliases": [],
+      "parents": [],
+      "children": []
+    },
+    "kubernetes": {
+      "type": "tool",
+      "weight": 1,
+      "aliases": ["k8s", "kube"],
+      "parents": [],
+      "children": []
+    },
+    "git": {
+      "type": "tool",
+      "weight": 1,
+      "aliases": [],
+      "parents": [],
+      "children": ["github", "gitlab"]
+    },
+    "rest api": {
+      "type": "protocol",
+      "weight": 2,
+      "aliases": ["rest", "restful", "restful api"],
+      "parents": [],
+      "children": []
+    },
+    "graphql": {
+      "type": "protocol",
+      "weight": 2,
+      "aliases": ["graph ql"],
+      "parents": [],
+      "children": []
+    }
+  }
+}
+
+

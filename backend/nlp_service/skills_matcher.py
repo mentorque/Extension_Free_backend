@@ -612,9 +612,27 @@ class SkillOntology:
     
     def __init__(self, ontology_path: Optional[str] = None):
         if ontology_path is None:
-            # Default path: backend/src/utils/skill_ontology.json
+            # Try multiple possible locations for skill_ontology.json
             current_dir = Path(__file__).parent  # backend/nlp_service/
-            ontology_path = current_dir.parent / "src" / "utils" / "skill_ontology.json"
+            
+            # Option 1: In nlp_service directory (for Railway deployment)
+            ontology_path = current_dir / "skill_ontology.json"
+            
+            # Option 2: In parent src/utils (for local development)
+            if not ontology_path.exists():
+                ontology_path = current_dir.parent / "src" / "utils" / "skill_ontology.json"
+            
+            # Option 3: Fallback to cwd
+            if not ontology_path.exists():
+                cwd_path = Path.cwd() / "skill_ontology.json"
+                if cwd_path.exists():
+                    ontology_path = cwd_path
+                else:
+                    cwd_path = Path.cwd() / "src" / "utils" / "skill_ontology.json"
+                    if cwd_path.exists():
+                        ontology_path = cwd_path
+            
+            ontology_path = str(ontology_path)
         
         self.ontology_path = str(ontology_path)
         self.ontology: Dict = {}
@@ -1861,11 +1879,27 @@ def get_skills_database(csv_path: Optional[str] = None) -> SkillsDatabase:
     
     if _skills_db is None:
         if csv_path is None:
-            # Default path: backend/src/utils/skills.csv
-            # nlp_service is at backend/nlp_service/
-            # skills.csv is at backend/src/utils/skills.csv
+            # Try multiple possible locations for skills.csv
             current_dir = Path(__file__).parent  # backend/nlp_service/
-            csv_path = current_dir.parent / "src" / "utils" / "skills.csv"
+            
+            # Option 1: In nlp_service directory (for Railway deployment)
+            csv_path = current_dir / "skills.csv"
+            
+            # Option 2: In parent src/utils (for local development)
+            if not csv_path.exists():
+                csv_path = current_dir.parent / "src" / "utils" / "skills.csv"
+            
+            # Option 3: Absolute path fallback (if Railway sets a different structure)
+            if not csv_path.exists():
+                # Try from current working directory
+                cwd_path = Path.cwd() / "skills.csv"
+                if cwd_path.exists():
+                    csv_path = cwd_path
+                else:
+                    # Try src/utils from cwd
+                    cwd_path = Path.cwd() / "src" / "utils" / "skills.csv"
+                    if cwd_path.exists():
+                        csv_path = cwd_path
         
         csv_path_str = str(csv_path)
         logger.info(f"Loading skills database from: {csv_path_str}")
