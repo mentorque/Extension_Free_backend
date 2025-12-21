@@ -620,7 +620,7 @@ class SkillOntology:
             
             # Option 2: In parent src/utils (for local development)
             if not ontology_path.exists():
-                    ontology_path = current_dir.parent / "src" / "utils" / "skill_ontology.json"
+            ontology_path = current_dir.parent / "src" / "utils" / "skill_ontology.json"
             
             # Option 3: Fallback to cwd
             if not ontology_path.exists():
@@ -758,14 +758,20 @@ class SkillClassifier:
             
             # ONLY load from cache - NEVER compute on server
             # Embeddings must be pre-computed on laptop and committed to git
-            if self._load_embeddings_from_cache():
+            cache_loaded = self._load_embeddings_from_cache()
+            if cache_loaded:
                 safe_stderr_print("✅ Loaded pre-computed embeddings from cache", flush=True)
                 logger.info("✅ Loaded pre-computed embeddings from cache - server skipped computation")
                 return
             else:
                 # Cache not found - disable classifier (don't compute on server)
+                # The detailed path logging is already done in _load_embeddings_from_cache()
                 error_msg = "❌ Embeddings cache not found - pre-compute on laptop and commit to git"
+                safe_stderr_print("=" * 60, flush=True)
                 safe_stderr_print(error_msg, flush=True)
+                safe_stderr_print("   Run: cd backend/nlp_service && python3 precompute_embeddings.py", flush=True)
+                safe_stderr_print("   Then commit the .npy files to git", flush=True)
+                safe_stderr_print("=" * 60, flush=True)
                 logger.error(error_msg)
                 logger.error("   Run: cd backend/nlp_service && python3 precompute_embeddings.py")
                 logger.error("   Then commit the .npy files to git")
@@ -1819,7 +1825,7 @@ def get_skills_database(csv_path: Optional[str] = None) -> SkillsDatabase:
             
             # Option 2: In parent src/utils (for local development)
             if not csv_path.exists():
-                csv_path = current_dir.parent / "src" / "utils" / "skills.csv"
+            csv_path = current_dir.parent / "src" / "utils" / "skills.csv"
             
             # Option 3: Absolute path fallback (if Railway sets a different structure)
             if not csv_path.exists():
