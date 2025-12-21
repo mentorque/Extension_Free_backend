@@ -1701,10 +1701,12 @@ class KeywordsDatabase:
                                     progress_pct = (total_processed / total_rows * 100) if total_rows > 0 else 0
                                     safe_stderr_print(f"\r🔄 Loading keywords: {total_processed}/{total_rows} ({progress_pct:.1f}%) - Kept: {loaded_count}, Filtered: {filtered_count}", end='', flush=True)
                                 
-                                # More permissive: use is_relevant_keyword (threshold 0.10)
-                                if not self.classifier.is_relevant_keyword(keyword, threshold=0.10):
-                                    filtered_count += 1
-                                    continue
+                                # Skip pre-filtering during loading - it's too slow for 40k+ keywords
+                                # Keywords are already curated in keywords.csv, so we trust them
+                                # Pre-filtering will happen later during actual extraction if needed
+                                # if not self.classifier.is_relevant_keyword(keyword, threshold=0.10):
+                                #     filtered_count += 1
+                                #     continue
                             
                             keywords_set.add(keyword)
                             loaded_count += 1

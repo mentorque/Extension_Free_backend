@@ -631,10 +631,6 @@ def is_generic_word(word: str, spacy_stopwords: Set[str]) -> bool:
     """
     w = word.lower()
     
-    # Check resume-specific generic terms first (more specific)
-    if w in RESUME_GENERIC_TERMS:
-        return True
-    
     # Check custom stopwords
     if w in GENERIC_STOPWORDS:
         return True
