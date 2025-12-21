@@ -620,7 +620,7 @@ class SkillOntology:
             
             # Option 2: In parent src/utils (for local development)
             if not ontology_path.exists():
-                ontology_path = current_dir.parent / "src" / "utils" / "skill_ontology.json"
+            ontology_path = current_dir.parent / "src" / "utils" / "skill_ontology.json"
             
             # Option 3: Fallback to cwd
             if not ontology_path.exists():
@@ -810,6 +810,14 @@ class SkillClassifier:
             # Check if all files exist
             if not (important_tech_path.exists() and less_important_tech_path.exists() and 
                     non_tech_path.exists() and metadata_path.exists()):
+                logger.warning(f"Cache files not found. Looking for:")
+                logger.warning(f"  - {important_tech_path.absolute()} (exists: {important_tech_path.exists()})")
+                logger.warning(f"  - {less_important_tech_path.absolute()} (exists: {less_important_tech_path.exists()})")
+                logger.warning(f"  - {non_tech_path.absolute()} (exists: {non_tech_path.exists()})")
+                logger.warning(f"  - {metadata_path.absolute()} (exists: {metadata_path.exists()})")
+                logger.warning(f"  Current working directory: {Path.cwd()}")
+                logger.warning(f"  __file__ location: {Path(__file__).absolute()}")
+                logger.warning(f"  embeddings_dir: {self.embeddings_dir.absolute()}")
                 return False
             
             # Load embeddings from numpy files
@@ -1811,7 +1819,7 @@ def get_skills_database(csv_path: Optional[str] = None) -> SkillsDatabase:
             
             # Option 2: In parent src/utils (for local development)
             if not csv_path.exists():
-                csv_path = current_dir.parent / "src" / "utils" / "skills.csv"
+            csv_path = current_dir.parent / "src" / "utils" / "skills.csv"
             
             # Option 3: Absolute path fallback (if Railway sets a different structure)
             if not csv_path.exists():
