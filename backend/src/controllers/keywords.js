@@ -615,6 +615,9 @@ async function ensureNlpService(serviceUrl) {
               } else {
                 console.log(`[EMBEDDINGS] ${output}`);
               }
+            } else if (output.includes('[CUSTOM KEYWORDS]') || output.includes('Custom keywords') || output.includes('custom keyword')) {
+              // Custom keywords loading messages - make them very visible
+              console.log(`[NLP Service - Custom Keywords] ${output}`);
             } else if (output.includes('Sentence Transformers') || 
                 output.includes('sentence_transformers') ||
                 output.includes('[ST]') || 
@@ -1042,6 +1045,21 @@ const generateKeywords = async (req, res, next) => {
     }
     
     const stats = extractResponse.data?.stats || {};
+    
+    // Extract 3-section classification from NLP service response
+    const importantSkills = Array.isArray(extractResponse.data?.important_skills)
+      ? extractResponse.data.important_skills
+      : (Array.isArray(extractResponse.data?.skills) ? extractResponse.data.skills : []);
+    const lessImportantSkills = Array.isArray(extractResponse.data?.less_important_skills)
+      ? extractResponse.data.less_important_skills
+      : [];
+    const nonTechnicalSkills = Array.isArray(extractResponse.data?.non_technical_skills)
+      ? extractResponse.data.non_technical_skills
+      : [];
+    
+    // Check if classifier is available (has classification data)
+    const classifierAvailable = (importantSkills.length > 0 || lessImportantSkills.length > 0 || nonTechnicalSkills.length > 0) &&
+                                extractResponse.data?.classifier_available !== false;
     
     console.log(`[Keywords] 🔍 Step 3: Skills extracted and cleaned`);
     console.log(`[Keywords]   ┌─────────────────────────────────────────┐`);
@@ -1482,7 +1500,49 @@ const generateKeywords = async (req, res, next) => {
       present_weight: presentWeight,
       missing_weight: missingWeight,
       total_weight: totalWeight,
-      bifurcated: true
+      bifurcated: true,
+      // Step-by-step processing details
+      processing_steps: {
+        step1_phrasematcher: {
+          name: "spaCy PhraseMatcher",
+          description: "Extract skills using PhraseMatcher with 38k skills database",
+          total_matches: stats.total_matches || 0,
+          raw_matches: extractResponse.data?.matches?.slice(0, 20) || [], // First 20 matches
+          stats: {
+            total_matches: stats.total_matches || 0,
+            garbage_filtered: stats.garbage_filtered || 0,
+            low_priority_filtered: stats.low_priority_filtered || 0
+          }
+        },
+        step2_semantic_classification: {
+          name: "Semantic Classification (Sentence Transformers)",
+          description: "Classify skills using embeddings into important/less important/non-technical",
+          important_skills_count: importantSkills.length,
+          less_important_skills_count: lessImportantSkills.length,
+          non_technical_skills_count: nonTechnicalSkills.length,
+          important_skills: importantSkills.slice(0, 20), // First 20
+          less_important_skills: lessImportantSkills.slice(0, 20),
+          non_technical_skills: nonTechnicalSkills.slice(0, 20),
+          classifier_available: classifierAvailable
+        },
+        step3_normalization: {
+          name: "Skill Normalization",
+          description: "Normalize and canonicalize skill names",
+          normalized_skills: jdSkills.slice(0, 20), // First 20 normalized skills
+          total_normalized: jdSkills.length
+        },
+        step4_matching: {
+          name: "Skill Matching",
+          description: "Match user skills with extracted keywords",
+          matched_count: presentSkills.length,
+          missing_count: allSkills.length,
+          match_percentage: weightedMatchPercentage
+        }
+      },
+      // All extracted keywords for display
+      extractedKeywords: jdSkills,
+      matchedSkills: presentSkills,
+      missingSkills: allSkills
     };
     
     // Final summary with structured logging

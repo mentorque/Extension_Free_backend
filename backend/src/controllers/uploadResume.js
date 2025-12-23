@@ -336,6 +336,26 @@ const uploadResume = async (req, res, next) => {
       return res.status(400).json({ error: 'Empty resume text' });
     }
 
+    // Clean and normalize resume text for better NLP processing (same as keywords analysis)
+    // Remove excessive whitespace, normalize line breaks, and clean common artifacts
+    const cleanedResumeText = resumeText
+      .replace(/[\s\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+/g, ' ') // Normalize all whitespace
+      .replace(/\s*[•·▪▫]\s*/g, ' ') // Remove bullet points
+      .replace(/\s*[–—]\s*/g, ' ') // Normalize dashes
+      .replace(/\s+/g, ' ') // Collapse multiple spaces
+      .trim();
+    
+    // Check if resume text is too short after cleaning
+    if (!cleanedResumeText || cleanedResumeText.length < 10) {
+      console.warn('[uploadResume] Resume text is too short after cleaning');
+      return res.status(400).json({ 
+        error: 'Invalid resume',
+        message: 'Resume text must contain substantial content (at least 10 characters)'
+      });
+    }
+    
+    console.log(`[uploadResume] 📝 Text cleaning: ${resumeText.length} chars → ${cleanedResumeText.length} chars`);
+
     // Ensure NLP service is running
     console.log('[uploadResume] 🔍 Checking NLP service...');
     try {
@@ -350,11 +370,14 @@ const uploadResume = async (req, res, next) => {
     }
     
     // Extract skills from resume using NLP service with PhraseMatcher
+    // Use the SAME endpoint and parameters as keywords analysis for consistency
     const normalizedServiceUrl = normalizeUrl(NLP_SERVICE_URL);
     const extractSkillsUrl = `${normalizedServiceUrl}/extract-skills`;
     console.log('[uploadResume] 🔍 Extracting skills using PhraseMatcher + skills.csv...');
     console.log(`[uploadResume]   Endpoint: ${extractSkillsUrl}`);
     console.log(`[uploadResume]   Using: spaCy PhraseMatcher with 38k skills from skills.csv`);
+    console.log(`[uploadResume]   Text length: ${cleanedResumeText.length} chars (cleaned)`);
+    console.log(`[uploadResume]   Custom keywords: Enabled (same as keywords analysis)\n`);
     
     const nlpCallStartTime = Date.now();
     let extractResponse;
@@ -362,7 +385,7 @@ const uploadResume = async (req, res, next) => {
       extractResponse = await axios.post(
         extractSkillsUrl,
         { 
-          text: resumeText,
+          text: cleanedResumeText, // Use cleaned text (same as keywords analysis)
           use_fuzzy: true
         },
         { 
@@ -409,11 +432,13 @@ const uploadResume = async (req, res, next) => {
     
     // Get extracted skills with 3-section classification
     // Skills are normalized: "ts" → "TypeScript", "node" → "Node.js"
+    // IMPORTANT: Use the SAME response structure as keywords analysis
     const extractedSkills = Array.isArray(extractResponse.data?.skills) 
       ? extractResponse.data.skills 
       : [];
     
     // Get 3-section classification (with fallback if not present)
+    // This matches the exact same logic as keywords.js
     const importantSkills = Array.isArray(extractResponse.data?.important_skills)
       ? extractResponse.data.important_skills
       : (Array.isArray(extractResponse.data?.skills) ? extractResponse.data.skills : []);
@@ -424,13 +449,19 @@ const uploadResume = async (req, res, next) => {
       ? extractResponse.data.non_technical_skills
       : [];
     
-    // Log response structure for debugging
+    // Log response structure for debugging (same as keywords analysis)
     console.log('[uploadResume] 📋 Response structure:', {
       has_important_skills: Array.isArray(extractResponse.data?.important_skills),
       has_less_important_skills: Array.isArray(extractResponse.data?.less_important_skills),
       has_non_technical_skills: Array.isArray(extractResponse.data?.non_technical_skills),
+      total_skills: extractedSkills.length,
       response_keys: Object.keys(extractResponse.data || {})
     });
+    
+    // Log custom keywords detection (if available in response)
+    if (extractResponse.data?.stats) {
+      console.log('[uploadResume] 🔑 Custom keywords: Enabled (same extraction logic as keywords analysis)');
+    }
     
     const stats = extractResponse.data?.stats || {};
     
@@ -449,13 +480,15 @@ const uploadResume = async (req, res, next) => {
     // Parse resume structure (name, position, experience)
     console.log('[uploadResume] 🔍 Parsing resume structure...');
     const parsedResume = parseResumeWithNLP(resumeText);
-    // Store only Important skills in the main skills field (for display)
-    parsedResume.skills = importantSkills; // Only Important skills for display
+    // Store ALL extracted skills in the main skills field (for consistency with keywords analysis)
+    // This ensures resume extraction shows the same skills as keywords analysis
+    parsedResume.skills = extractedSkills; // All extracted skills (same as keywords endpoint)
     // Store all categories for localStorage
     parsedResume.skills_classified = {
       important: importantSkills,
       less_important: lessImportantSkills,
-      non_technical: nonTechnicalSkills
+      non_technical: nonTechnicalSkills,
+      all: extractedSkills // Include all skills for consistency
     };
     
     console.log('[uploadResume] ✅ Resume parsed successfully');

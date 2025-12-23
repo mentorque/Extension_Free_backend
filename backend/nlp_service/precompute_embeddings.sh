@@ -29,3 +29,6 @@ echo ""
 echo "Done! Check embeddings_cache/ directory for .npy files"
 
 
+
+
+

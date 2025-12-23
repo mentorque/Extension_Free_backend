@@ -43,8 +43,21 @@ router.post('/hr-lookup', hrLookupController.hrLookup);
 // Keywords routes
 router.post('/keywords', keywordsController.generateKeywords);
 
-// Resume upload routes - FIXED: handleFileUpload instead of uploadMiddleware
-router.post('/upload-resume', handleFileUpload, uploadResumeController.uploadResume);
+// Resume upload routes - Accepts both JSON (resumeText) and file uploads
+router.post('/upload-resume', (req, res, next) => {
+  // If content-type is application/json, skip multer and go directly to controller
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('application/json')) {
+    return uploadResumeController.uploadResume(req, res, next);
+  }
+  // Otherwise, use multer for file uploads (multipart/form-data)
+  handleFileUpload(req, res, (err) => {
+    if (err) {
+      return next(err);
+    }
+    uploadResumeController.uploadResume(req, res, next);
+  });
+});
 
 // Applied jobs routes
 router.get('/applied-jobs', appliedJobsController.getAppliedJobs);

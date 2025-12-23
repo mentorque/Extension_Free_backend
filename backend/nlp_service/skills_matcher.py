@@ -72,6 +72,21 @@ except ImportError as e:
 
 logger = logging.getLogger(__name__)
 
+# Import custom keywords loader
+try:
+    try:
+        from .custom_keywords_loader import load_custom_keywords, get_custom_keywords_normalized_set
+    except ImportError:
+        from custom_keywords_loader import load_custom_keywords, get_custom_keywords_normalized_set
+    CUSTOM_KEYWORDS_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Custom keywords loader not available: {e}")
+    CUSTOM_KEYWORDS_AVAILABLE = False
+    def load_custom_keywords():
+        return []
+    def get_custom_keywords_normalized_set(keywords, normalize_func):
+        return set()
+
 # Safe StreamHandler that handles broken pipe errors
 class SafeStreamHandler(logging.StreamHandler):
     """Stream handler that safely handles broken pipe errors"""
@@ -1216,6 +1231,7 @@ class SkillsDatabase:
         self.ontology = SkillOntology(ontology_path)  # Load ontology
         self.classifier = SkillClassifier()  # Semantic skill classifier
         self.loaded = False
+        self.custom_keywords_normalized: Set[str] = set()  # Track normalized custom keywords
         
     def load(self) -> None:
         """Load skills from CSV file"""
@@ -1290,6 +1306,96 @@ class SkillsDatabase:
             logger.error(f"Error reading CSV: {e}")
             raise
         
+        # After loading CSV skills, build normalized set for duplicate checking
+        # IMPORTANT: This only contains skills that PASSED the classification filter
+        # Skills filtered out during CSV loading won't be in this set
+        normalized_skills_set = set()
+        for skill in skills_set:
+            normalized = self._normalize(skill.lower())
+            normalized_skills_set.add(normalized)
+        
+        # Also check original CSV for normalized forms (to avoid adding exact duplicates)
+        # But we'll still add custom keywords even if they exist in CSV (they might have been filtered out)
+        csv_normalized_set = set()
+        try:
+            with open(self.csv_path, 'r', encoding='utf-8', errors='ignore') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    skill = row.get('Skill', '').strip()
+                    if skill:
+                        skill = skill.replace('"', '').replace('\n', ' ').strip()
+                        if skill and len(skill) > 1:
+                            normalized = self._normalize(skill.lower())
+                            csv_normalized_set.add(normalized)
+        except Exception as e:
+            logger.warning(f"Could not read CSV for duplicate checking: {e}")
+            csv_normalized_set = normalized_skills_set  # Fallback to filtered set
+        
+        # Load custom keywords and merge with CSV skills (bypassing classification filter)
+        try:
+            if CUSTOM_KEYWORDS_AVAILABLE:
+                custom_keywords = load_custom_keywords()
+                if custom_keywords:
+                    logger.info(f"Loading {len(custom_keywords)} custom keyword definitions...")
+                    
+                    custom_added_count = 0
+                    custom_skipped_count = 0
+                    
+                    for keyword_obj in custom_keywords:
+                        base = keyword_obj.get('base', '')
+                        variations = keyword_obj.get('variations', [])
+                        
+                        for variation in variations:
+                            normalized = self._normalize(variation.lower())
+                            
+                            # Check if this exact variation already exists in skills_set (case-insensitive)
+                            variation_lower = variation.lower()
+                            skills_lower = [s.lower() for s in skills_set]
+                            
+                            if variation_lower in skills_lower:
+                                # Exact variation already exists in skills_set, skip adding but mark as custom
+                                custom_skipped_count += 1
+                                logger.debug(f"Custom keyword '{variation}' already exists in skills_set - will bypass filters during extraction")
+                            elif normalized in csv_normalized_set and normalized not in normalized_skills_set:
+                                # Exists in CSV but was filtered out - add it anyway (custom keywords bypass filters)
+                                skills_set.add(variation)
+                                normalized_skills_set.add(normalized)
+                                custom_added_count += 1
+                                logger.info(f"Added custom keyword '{variation}' (was filtered out from CSV, now added as custom keyword)")
+                            elif normalized in normalized_skills_set:
+                                # Normalized form exists in filtered skills_set but exact variation doesn't - add it
+                                # This ensures all variations are available for PhraseMatcher
+                                skills_set.add(variation)
+                                normalized_skills_set.add(normalized)
+                                custom_added_count += 1
+                                logger.debug(f"Added custom keyword variation '{variation}' (normalized form exists but exact variation doesn't)")
+                            else:
+                                # Completely new - add variation to skills_set (bypassing classification filter)
+                                skills_set.add(variation)
+                                normalized_skills_set.add(normalized)
+                                custom_added_count += 1
+                                logger.debug(f"Added custom keyword variation: '{variation}'")
+                    
+                    # Store normalized set for custom keywords (for extraction-time bypass)
+                    # IMPORTANT: Include ALL custom keywords, even if they exist in CSV
+                    # This ensures they bypass classification filters during extraction
+                    self.custom_keywords_normalized = get_custom_keywords_normalized_set(
+                        custom_keywords, 
+                        self._normalize
+                    )
+                    
+                    logger.info(f"Custom keywords: {custom_added_count} added, {custom_skipped_count} skipped (duplicates)")
+                    safe_stderr_print(f"✅ [CUSTOM KEYWORDS] Loaded {len(custom_keywords)} keyword definitions", flush=True)
+                    safe_stderr_print(f"   Added {custom_added_count} variations, skipped {custom_skipped_count} duplicates", flush=True)
+                    safe_stderr_print(f"   Custom keywords normalized set: {len(self.custom_keywords_normalized)} entries", flush=True)
+                else:
+                    self.custom_keywords_normalized = set()
+            else:
+                self.custom_keywords_normalized = set()
+        except Exception as e:
+            logger.warning(f"Error loading custom keywords: {e}")
+            self.custom_keywords_normalized = set()
+        
         self.skills = sorted(list(skills_set))
         self.skills_lower = [s.lower() for s in self.skills]
         
@@ -1308,6 +1414,8 @@ class SkillsDatabase:
         self.loaded = True
         logger.info(f"Loaded {len(self.skills)} unique skills")
         logger.info(f"Canonical forms: {len(self.reverse_canonical)}")
+        if self.custom_keywords_normalized:
+            logger.info(f"Custom keywords normalized set: {len(self.custom_keywords_normalized)} entries")
     
     def _normalize(self, text: str) -> str:
         """Normalize text for matching (remove spaces, special chars)"""
@@ -1329,6 +1437,19 @@ class SkillsDatabase:
         
         # Default: return normalized form
         return normalized
+    
+    def is_custom_keyword(self, skill: str) -> bool:
+        """
+        Check if a skill is a custom keyword (bypasses classification filters).
+        
+        Args:
+            skill: Skill to check
+            
+        Returns:
+            True if skill is a custom keyword
+        """
+        normalized = self._normalize(skill.lower())
+        return normalized in self.custom_keywords_normalized
     
     def is_valid_skill_type(self, skill: str) -> bool:
         """
@@ -1602,6 +1723,87 @@ class SkillsDatabase:
                 return canonical_skills[0]
         return None
     
+    def _format_title_case(self, text: str) -> str:
+        """
+        Format text to proper title case while preserving common acronyms.
+        Examples:
+        - "CHROMADB" → "ChromaDB"
+        - "HUGGING FACE TRANSFORMERS" → "Hugging Face Transformers"
+        - "RAG" → "RAG"
+        - "API" → "API"
+        - "relational_databases" → "Relational Databases"
+        - "c-s-v" → "CSV"
+        - "j-s-o-n" → "JSON"
+        """
+        if not text:
+            return text
+        
+        # First, handle single-letter acronyms separated by dashes (e.g., "c-s-v" → "csv")
+        # Pattern: single letter, dash, single letter, dash, etc.
+        dash_acronym_pattern = re.compile(r'^([a-z])-([a-z])-([a-z])(?:-([a-z]))?$', re.IGNORECASE)
+        match = dash_acronym_pattern.match(text.strip())
+        if match:
+            # Reconstruct as single acronym (e.g., "c-s-v" → "csv")
+            letters = [g for g in match.groups() if g]
+            acronym = ''.join(letters).upper()
+            # Check if it's a known acronym
+            if acronym.lower() in {'csv', 'json', 'xml', 'yaml', 'html', 'css', 'api', 'url', 'uri', 'sql', 'tcp', 'udp', 'dns', 'ssl', 'tls', 'jwt', 'pki', 'sso', 'mfa', '2fa', 'kpi', 'roi', 'erp', 'crm', 'scm', 'bpmn', 'itil', 'uat', 'sit', 'qa', 'ci', 'cd', 'devops', 'ml', 'ai', 'nlp', 'llm', 'rag', 'gpu', 'cpu', 'ram', 'ssd', 'hdd'}:
+                return acronym
+            # If not known, still convert to acronym format
+            return acronym
+        
+        # Normalize separators (underscores, dashes) to spaces
+        # This handles cases like "relational_databases", "pivot-tables"
+        normalized = text.replace('_', ' ').replace('-', ' ')
+        # Collapse multiple spaces
+        normalized = re.sub(r'\s+', ' ', normalized).strip()
+        
+        # Common acronyms that should stay uppercase (2-5 letters, all caps)
+        COMMON_ACRONYMS = {
+            'api', 'rag', 'sql', 'aws', 'gcp', 's3', 'ec2', 'html', 'css', 'js', 'ts',
+            'json', 'xml', 'yaml', 'csv', 'http', 'https', 'rest', 'graphql', 'soap',
+            'aws', 'azure', 'gcp', 'k8s', 'ci', 'cd', 'devops', 'ml', 'ai', 'nlp',
+            'llm', 'gpu', 'cpu', 'ram', 'ssd', 'hdd', 'tcp', 'udp', 'dns', 'ssl',
+            'tls', 'jwt', 'oauth', 'saml', 'ldap', 'ad', 'sso', 'mfa', '2fa',
+            'faiss', 'lora', 'rag', 'api', 'sdk', 'cli', 'gui', 'ui', 'ux',
+            'qa', 'uat', 'sit', 'erp', 'crm', 'scm', 'bpmn', 'itil', 'six sigma',
+            'iso', 'swift', 'iso20022', 'iso 20022', 'prd', 'okr', 'kpi'
+        }
+        
+        # Split into words
+        words = normalized.split()
+        formatted_words = []
+        
+        for word in words:
+            word_lower = word.lower()
+            
+            # Check if it's a common acronym (2-5 chars, all caps or all lowercase)
+            if len(word) >= 2 and len(word) <= 5:
+                if word_lower in COMMON_ACRONYMS:
+                    # Preserve as uppercase if it was uppercase, otherwise title case
+                    if word.isupper():
+                        formatted_words.append(word)
+                    else:
+                        formatted_words.append(word_lower.upper())
+                    continue
+            
+            # For longer words or non-acronyms, use title case
+            # But preserve existing capitalization if it looks intentional
+            if word.isupper() and len(word) > 5:
+                # Long all-caps word - convert to title case
+                formatted_words.append(word.title())
+            elif word.islower():
+                # All lowercase - convert to title case
+                formatted_words.append(word.title())
+            elif word[0].isupper() and word[1:].islower():
+                # Already in title case - keep it
+                formatted_words.append(word)
+            else:
+                # Mixed case - convert to title case
+                formatted_words.append(word.title())
+        
+        return ' '.join(formatted_words)
+    
     def normalize_skill_display(self, skill: str) -> str:
         """
         Normalize skill to proper display name (e.g., "ts" → "TypeScript", "node" → "Node.js")
@@ -1712,6 +1914,42 @@ class SkillsDatabase:
             "oracle": "Oracle",
             "nosql": "NoSQL",
             
+            # Vector Databases & AI/ML
+            "chromadb": "ChromaDB",
+            "chroma db": "ChromaDB",
+            "pinecone": "Pinecone",
+            "weaviate": "Weaviate",
+            "faiss": "FAISS",
+            "ollama": "Ollama",
+            "vllm": "vLLM",
+            "hugging face transformers": "Hugging Face Transformers",
+            "huggingface transformers": "Hugging Face Transformers",
+            "huggingface": "Hugging Face",
+            "large language models": "Large Language Models",
+            "llm": "LLM",
+            "llms": "LLMs",
+            "generative ai": "Generative AI",
+            "prompt engineering": "Prompt Engineering",
+            "langchain": "LangChain",
+            "rag retrieval augmented generation": "RAG (Retrieval Augmented Generation)",
+            "rag": "RAG",
+            "vector databases": "Vector Databases",
+            "embeddings": "Embeddings",
+            "semantic search": "Semantic Search",
+            "tokenization": "Tokenization",
+            "fine tuning": "Fine Tuning",
+            "inference optimization": "Inference Optimization",
+            "openai api": "OpenAI API",
+            "openai": "OpenAI",
+            "lora": "LoRA",
+            "quantization": "Quantization",
+            "model serving": "Model Serving",
+            "context window management": "Context Window Management",
+            "ai agents": "AI Agents",
+            "tool calling": "Tool Calling",
+            "evaluation of llms": "Evaluation of LLMs",
+            "fastapi": "FastAPI",
+            
             # Other common tech
             "go": "Go",
             "rust": "Rust",
@@ -1735,10 +1973,11 @@ class SkillsDatabase:
             if canonical_lower in DISPLAY_NAME_MAP:
                 return DISPLAY_NAME_MAP[canonical_lower]
             # If not in display map, return canonical skill with proper casing
-            return canonical_skill
+            # Use format_title_case to ensure proper formatting
+            return self._format_title_case(canonical_skill)
         
-        # Default: return original with title case
-        return skill.title() if skill else skill
+        # Default: return original with proper title case formatting
+        return self._format_title_case(skill) if skill else skill
 
 
 # Global skills database instance
@@ -1989,10 +2228,26 @@ def extract_skills_with_phrasematcher(
         matcher.add("SKILLS", patterns)
         
         # Process text
-        doc = nlp_model(text)
+        # Preprocess: Replace commas with spaces to help PhraseMatcher match across comma boundaries
+        # This helps with comma-separated lists like "Sales, Business Development, CRM"
+        preprocessed_text = text.replace(',', ' ').replace(';', ' ')
+        doc = nlp_model(preprocessed_text)
         
         # Find matches
         matches = matcher(doc)
+        
+        # Log if no matches found (for debugging)
+        if len(matches) == 0:
+            logger.warning(f"⚠️  No PhraseMatcher matches found in text (length: {len(text)})")
+            logger.warning(f"   Skills database has {len(skills_db.skills)} skills loaded")
+            if hasattr(skills_db, 'custom_keywords_normalized'):
+                logger.warning(f"   Custom keywords normalized set: {len(skills_db.custom_keywords_normalized)} entries")
+            # Check if any test keywords are in the skills list
+            test_keywords = ['Sales', 'Business Development', 'CRM', 'Salesforce']
+            logger.warning(f"   Checking if test keywords exist in skills list:")
+            for kw in test_keywords:
+                in_list = any(kw.lower() == s.lower() for s in skills_db.skills)
+                logger.warning(f"     {kw}: {'✓' if in_list else '✗'}")
     
         # Log total matches found and check for specific skills
         # Removed verbose debug logging
@@ -2034,18 +2289,48 @@ def extract_skills_with_phrasematcher(
             # PRIMARY FILTER: Semantic classification using Sentence Transformers (embeddings)
             # This is the main filter - uses ML to determine if term is technical
             # Only falls back to rule-based filters if classifier unavailable
+            # Check if this is a custom keyword (bypasses classification filter)
+            # IMPORTANT: Check both the matched text and its normalized form
+            is_custom = (skills_db.is_custom_keyword(matched_text) or 
+                        skills_db.is_custom_keyword(matched_lower) or
+                        skills_db.is_custom_keyword(matched_text.title()))
+            
+            # Also check if any variation of the matched text is a custom keyword
+            # This handles case variations that PhraseMatcher might produce
+            if not is_custom:
+                # Check normalized form directly
+                normalized = skills_db._normalize(matched_lower)
+                is_custom = normalized in skills_db.custom_keywords_normalized
+                if is_custom:
+                    logger.debug(f"✅ Custom keyword detected (via normalized check): '{matched_text}' (normalized: '{normalized}')")
+            
+            # Log custom keyword detection for debugging
+            if is_custom:
+                logger.info(f"🔑 [CUSTOM KEYWORD] '{matched_text}' - bypassing all filters")
+                safe_stderr_print(f"[CUSTOM KEYWORD] ✅ '{matched_text}' detected - bypassing filters", flush=True)
             is_technical = True  # Default to True if classifier unavailable
+            
             if skills_db.classifier.available:
                 # Removed verbose per-skill logging during extraction
                 is_technical = skills_db.classifier.is_technical_skill(matched_text, threshold=0.10)  # Lowered threshold from 0.15 to 0.10
-                if not is_technical:
-                    garbage_count += 1
-                    continue
+                
+                if is_custom:
+                    # Custom keyword: always include, but still classify for categorization
+                    # Don't filter out even if classified as non-technical
+                    pass
+                else:
+                    # Regular skill: apply filter
+                    if not is_technical:
+                        garbage_count += 1
+                        continue
+            else:
+                is_technical = False  # Default when classifier unavailable
         
             # Context Filtering (Option 2): Check if match appears in skill-relevant context
             # BUT: If semantic classifier says it's technical, be more lenient with context
             # This allows skills in lists like "Must Have Skills: Java, Spring Boot" to pass
-            if use_context_filter:
+            # Custom keywords bypass context filtering
+            if use_context_filter and not is_custom:
                 has_context = has_skill_context(span, doc)
                 # If semantic classifier confirmed it's technical, accept even without perfect context
                 # This handles cases like "Must Have Skills: Java, Spring Boot" where context is minimal
@@ -2059,7 +2344,8 @@ def extract_skills_with_phrasematcher(
             # Removed verbose per-match logging
         
             # If classifier is NOT available, use rule-based filters
-            if not skills_db.classifier.available:
+            # Custom keywords bypass all rule-based filters
+            if not skills_db.classifier.available and not is_custom:
                 # Log when classifier is NOT available (only once)
                 if not hasattr(extract_skills_with_phrasematcher, '_logged_no_classifier'):
                     safe_stderr_print("=" * 60, flush=True)
@@ -2068,7 +2354,7 @@ def extract_skills_with_phrasematcher(
                     safe_stderr_print("=" * 60, flush=True)
                     extract_skills_with_phrasematcher._logged_no_classifier = True
             
-                # Fallback to rule-based filters only if classifier unavailable
+                # Fallback to rule-based filters only if classifier unavailable and not custom keyword
                 # Step 1: Skill Type Enforcement (HARD GATE) - Check FIRST
                 if not skills_db.is_valid_skill_type(matched_text):
                     garbage_count += 1

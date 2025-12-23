@@ -40,6 +40,21 @@ app.use(cors({
       return callback(null, true);
     }
     
+    // Allow 127.0.0.1 on any port (for web frontend)
+    if (origin.match(/^https?:\/\/127\.0\.0\.1(:\d+)?$/)) {
+      return callback(null, true);
+    }
+    
+    // Allow Vite dev server (typically runs on port 5173)
+    if (origin.match(/^https?:\/\/localhost:5173$/)) {
+      return callback(null, true);
+    }
+    
+    // Allow any localhost port for React dev servers
+    if (origin.match(/^https?:\/\/localhost:\d+$/)) {
+      return callback(null, true);
+    }
+    
     // Allow job board sites (for content scripts)
     const jobBoardDomains = [
       'https://www.linkedin.com',

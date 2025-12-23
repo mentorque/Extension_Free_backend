@@ -1,0 +1,1484 @@
+{
+  "keywords": [
+    {
+      "base": "Large Language Models",
+      "description": ""
+    },
+    {
+      "base": "Generative AI",
+      "description": ""
+    },
+    {
+      "base": "Prompt Engineering",
+      "description": ""
+    },
+    {
+      "base": "LangChain",
+      "description": ""
+    },
+    {
+      "base": "RAG Retrieval Augmented Generation",
+      "description": ""
+    },
+    {
+      "base": "Vector Databases",
+      "description": ""
+    },
+    {
+      "base": "Embeddings",
+      "description": ""
+    },
+    {
+      "base": "Semantic Search",
+      "description": ""
+    },
+    {
+      "base": "Tokenization",
+      "description": ""
+    },
+    {
+      "base": "Fine Tuning",
+      "description": ""
+    },
+    {
+      "base": "Inference Optimization",
+      "description": ""
+    },
+    {
+      "base": "OpenAI API",
+      "description": ""
+    },
+    {
+      "base": "Hugging Face Transformers",
+      "description": ""
+    },
+    {
+      "base": "LoRA",
+      "description": ""
+    },
+    {
+      "base": "Quantization",
+      "description": ""
+    },
+    {
+      "base": "Model Serving",
+      "description": ""
+    },
+    {
+      "base": "Context Window Management",
+      "description": ""
+    },
+    {
+      "base": "AI Agents",
+      "description": ""
+    },
+    {
+      "base": "Tool Calling",
+      "description": ""
+    },
+    {
+      "base": "Evaluation of LLMs",
+      "description": ""
+    },
+    {
+      "base": "FAISS",
+      "description": ""
+    },
+    {
+      "base": "Pinecone",
+      "description": ""
+    },
+    {
+      "base": "ChromaDB",
+      "description": ""
+    },
+    {
+      "base": "Weaviate",
+      "description": ""
+    },
+    {
+      "base": "Ollama",
+      "description": ""
+    },
+    {
+      "base": "vLLM",
+      "description": ""
+    },
+    {
+      "base": "FastAPI",
+      "description": ""
+    },
+    {
+      "base": "Docker",
+      "description": ""
+    },
+    {
+      "base": "Financial Analysis",
+      "description": ""
+    },
+    {
+      "base": "Financial Modeling",
+      "description": ""
+    },
+    {
+      "base": "Budgeting",
+      "description": ""
+    },
+    {
+      "base": "Forecasting",
+      "description": ""
+    },
+    {
+      "base": "Variance Analysis",
+      "description": ""
+    },
+    {
+      "base": "Profit and Loss Analysis",
+      "description": ""
+    },
+    {
+      "base": "Balance Sheet Analysis",
+      "description": ""
+    },
+    {
+      "base": "Cash Flow Analysis",
+      "description": ""
+    },
+    {
+      "base": "Cost Analysis",
+      "description": ""
+    },
+    {
+      "base": "Revenue Analysis",
+      "description": ""
+    },
+    {
+      "base": "Expense Tracking",
+      "description": ""
+    },
+    {
+      "base": "Ratio Analysis",
+      "description": ""
+    },
+    {
+      "base": "Trend Analysis",
+      "description": ""
+    },
+    {
+      "base": "Scenario Analysis",
+      "description": ""
+    },
+    {
+      "base": "Sensitivity Analysis",
+      "description": ""
+    },
+    {
+      "base": "Valuation",
+      "description": ""
+    },
+    {
+      "base": "Discounted Cash Flow",
+      "description": ""
+    },
+    {
+      "base": "Comparable Company Analysis",
+      "description": ""
+    },
+    {
+      "base": "Financial Reporting",
+      "description": ""
+    },
+    {
+      "base": "Management Reporting",
+      "description": ""
+    },
+    {
+      "base": "KPI Tracking",
+      "description": ""
+    },
+    {
+      "base": "Business Performance Analysis",
+      "description": ""
+    },
+    {
+      "base": "Data Analysis",
+      "description": ""
+    },
+    {
+      "base": "Excel",
+      "description": ""
+    },
+    {
+      "base": "Advanced Excel",
+      "description": ""
+    },
+    {
+      "base": "Pivot Tables",
+      "description": ""
+    },
+    {
+      "base": "VLOOKUP",
+      "description": ""
+    },
+    {
+      "base": "Power Query",
+      "description": ""
+    },
+    {
+      "base": "Financial Dashboards",
+      "description": ""
+    },
+    {
+      "base": "MIS Reporting",
+      "description": ""
+    },
+    {
+      "base": "SQL",
+      "description": ""
+    },
+    {
+      "base": "Power BI",
+      "description": ""
+    },
+    {
+      "base": "Tableau",
+      "description": ""
+    },
+    {
+      "base": "Data Visualization",
+      "description": ""
+    },
+    {
+      "base": "Accounting Basics",
+      "description": ""
+    },
+    {
+      "base": "GAAP",
+      "description": ""
+    },
+    {
+      "base": "IFRS",
+      "description": ""
+    },
+    {
+      "base": "Audit Support",
+      "description": ""
+    },
+    {
+      "base": "Internal Controls",
+      "description": ""
+    },
+    {
+      "base": "Risk Analysis",
+      "description": ""
+    },
+    {
+      "base": "Credit Analysis",
+      "description": ""
+    },
+    {
+      "base": "Working Capital Management",
+      "description": ""
+    },
+    {
+      "base": "Capital Budgeting",
+      "description": ""
+    },
+    {
+      "base": "Investment Analysis",
+      "description": ""
+    },
+    {
+      "base": "Market Research",
+      "description": ""
+    },
+    {
+      "base": "Industry Analysis",
+      "description": ""
+    },
+    {
+      "base": "Pricing Analysis",
+      "description": ""
+    },
+    {
+      "base": "Cost Benefit Analysis",
+      "description": ""
+    },
+    {
+      "base": "Forecast Accuracy",
+      "description": ""
+    },
+    {
+      "base": "Financial Planning",
+      "description": ""
+    },
+    {
+      "base": "FP&A",
+      "description": ""
+    },
+    {
+      "base": "Strategic Planning",
+      "description": ""
+    },
+    {
+      "base": "Business Forecasts",
+      "description": ""
+    },
+    {
+      "base": "Monthly Closings",
+      "description": ""
+    },
+    {
+      "base": "Budget Reviews",
+      "description": ""
+    },
+    {
+      "base": "Financial Statements",
+      "description": ""
+    },
+    {
+      "base": "Stakeholder Reporting",
+      "description": ""
+    },
+    {
+      "base": "Decision Support",
+      "description": ""
+    },
+    {
+      "base": "Ad Hoc Analysis",
+      "description": ""
+    },
+    {
+      "base": "Process Improvement",
+      "description": ""
+    },
+    {
+      "base": "Automation",
+      "description": ""
+    },
+    {
+      "base": "Financial Systems",
+      "description": ""
+    },
+    {
+      "base": "ERP Systems",
+      "description": ""
+    },
+    {
+      "base": "SAP",
+      "description": ""
+    },
+    {
+      "base": "Oracle Financials",
+      "description": ""
+    },
+    {
+      "base": "NetSuite",
+      "description": ""
+    },
+    {
+      "base": "Compliance",
+      "description": ""
+    },
+    {
+      "base": "Documentation",
+      "description": ""
+    },
+    {
+      "base": "Presentation Skills",
+      "description": ""
+    },
+    {
+      "base": "Communication Skills",
+      "description": ""
+    },
+    {
+      "base": "Attention to Detail",
+      "description": ""
+    },
+    {
+      "base": "Data Cleaning",
+      "description": ""
+    },
+    {
+      "base": "Data Preprocessing",
+      "description": ""
+    },
+    {
+      "base": "Data Wrangling",
+      "description": ""
+    },
+    {
+      "base": "Exploratory Data Analysis",
+      "description": ""
+    },
+    {
+      "base": "EDA",
+      "description": ""
+    },
+    {
+      "base": "Data Validation",
+      "description": ""
+    },
+    {
+      "base": "Data Quality",
+      "description": ""
+    },
+    {
+      "base": "Data Transformation",
+      "description": ""
+    },
+    {
+      "base": "Data Modeling",
+      "description": ""
+    },
+    {
+      "base": "Data Aggregation",
+      "description": ""
+    },
+    {
+      "base": "Statistical Analysis",
+      "description": ""
+    },
+    {
+      "base": "Descriptive Statistics",
+      "description": ""
+    },
+    {
+      "base": "Inferential Statistics",
+      "description": ""
+    },
+    {
+      "base": "Hypothesis Testing",
+      "description": ""
+    },
+    {
+      "base": "A B Testing",
+      "description": ""
+    },
+    {
+      "base": "Regression Analysis",
+      "description": ""
+    },
+    {
+      "base": "Correlation Analysis",
+      "description": ""
+    },
+    {
+      "base": "Time Series Analysis",
+      "description": ""
+    },
+    {
+      "base": "Python",
+      "description": ""
+    },
+    {
+      "base": "Pandas",
+      "description": ""
+    },
+    {
+      "base": "NumPy",
+      "description": ""
+    },
+    {
+      "base": "Joins",
+      "description": ""
+    },
+    {
+      "base": "Subqueries",
+      "description": ""
+    },
+    {
+      "base": "Window Functions",
+      "description": ""
+    },
+    {
+      "base": "Dashboards",
+      "description": ""
+    },
+    {
+      "base": "Reporting",
+      "description": ""
+    },
+    {
+      "base": "Metrics Analysis",
+      "description": ""
+    },
+    {
+      "base": "Business Intelligence",
+      "description": ""
+    },
+    {
+      "base": "ETL",
+      "description": ""
+    },
+    {
+      "base": "Data Pipelines",
+      "description": ""
+    },
+    {
+      "base": "Data Extraction",
+      "description": ""
+    },
+    {
+      "base": "Data Loading",
+      "description": ""
+    },
+    {
+      "base": "APIs",
+      "description": ""
+    },
+    {
+      "base": "Web Scraping",
+      "description": ""
+    },
+    {
+      "base": "CSV",
+      "description": ""
+    },
+    {
+      "base": "JSON",
+      "description": ""
+    },
+    {
+      "base": "Relational Databases",
+      "description": ""
+    },
+    {
+      "base": "Data Warehousing",
+      "description": ""
+    },
+    {
+      "base": "Data Governance",
+      "description": ""
+    },
+    {
+      "base": "Data Documentation",
+      "description": ""
+    },
+    {
+      "base": "Data Storytelling",
+      "description": ""
+    },
+    {
+      "base": "Stakeholder Communication",
+      "description": ""
+    },
+    {
+      "base": "Problem Solving",
+      "description": ""
+    },
+    {
+      "base": "Critical Thinking",
+      "description": ""
+    },
+    {
+      "base": "Scripting",
+      "description": ""
+    },
+    {
+      "base": "Version Control",
+      "description": ""
+    },
+    {
+      "base": "Git",
+      "description": ""
+    },
+    {
+      "base": "Product Management",
+      "description": ""
+    },
+    {
+      "base": "Product Strategy",
+      "description": ""
+    },
+    {
+      "base": "Product Vision",
+      "description": ""
+    },
+    {
+      "base": "Product Roadmap",
+      "description": ""
+    },
+    {
+      "base": "Product Lifecycle",
+      "description": ""
+    },
+    {
+      "base": "Requirements Gathering",
+      "description": ""
+    },
+    {
+      "base": "PRD",
+      "description": ""
+    },
+    {
+      "base": "User Stories",
+      "description": ""
+    },
+    {
+      "base": "Acceptance Criteria",
+      "description": ""
+    },
+    {
+      "base": "Backlog Management",
+      "description": ""
+    },
+    {
+      "base": "Prioritization",
+      "description": ""
+    },
+    {
+      "base": "Feature Prioritization",
+      "description": ""
+    },
+    {
+      "base": "Stakeholder Management",
+      "description": ""
+    },
+    {
+      "base": "Cross Functional Collaboration",
+      "description": ""
+    },
+    {
+      "base": "Agile",
+      "description": ""
+    },
+    {
+      "base": "Scrum",
+      "description": ""
+    },
+    {
+      "base": "Kanban",
+      "description": ""
+    },
+    {
+      "base": "Sprint Planning",
+      "description": ""
+    },
+    {
+      "base": "Grooming",
+      "description": ""
+    },
+    {
+      "base": "Release Planning",
+      "description": ""
+    },
+    {
+      "base": "Go To Market",
+      "description": ""
+    },
+    {
+      "base": "User Research",
+      "description": ""
+    },
+    {
+      "base": "Customer Interviews",
+      "description": ""
+    },
+    {
+      "base": "User Personas",
+      "description": ""
+    },
+    {
+      "base": "User Journeys",
+      "description": ""
+    },
+    {
+      "base": "Problem Discovery",
+      "description": ""
+    },
+    {
+      "base": "Solution Design",
+      "description": ""
+    },
+    {
+      "base": "MVP",
+      "description": ""
+    },
+    {
+      "base": "Experimentation",
+      "description": ""
+    },
+    {
+      "base": "Metrics",
+      "description": ""
+    },
+    {
+      "base": "KPIs",
+      "description": ""
+    },
+    {
+      "base": "OKRs",
+      "description": ""
+    },
+    {
+      "base": "North Star Metric",
+      "description": ""
+    },
+    {
+      "base": "Product Analytics",
+      "description": ""
+    },
+    {
+      "base": "Data Driven Decisions",
+      "description": ""
+    },
+    {
+      "base": "Funnel Analysis",
+      "description": ""
+    },
+    {
+      "base": "Cohort Analysis",
+      "description": ""
+    },
+    {
+      "base": "Retention Analysis",
+      "description": ""
+    },
+    {
+      "base": "Churn Analysis",
+      "description": ""
+    },
+    {
+      "base": "Growth Metrics",
+      "description": ""
+    },
+    {
+      "base": "Usage Analytics",
+      "description": ""
+    },
+    {
+      "base": "Feedback Analysis",
+      "description": ""
+    },
+    {
+      "base": "Customer Insights",
+      "description": ""
+    },
+    {
+      "base": "Competitive Analysis",
+      "description": ""
+    },
+    {
+      "base": "SWOT Analysis",
+      "description": ""
+    },
+    {
+      "base": "Pricing Strategy",
+      "description": ""
+    },
+    {
+      "base": "Business Model",
+      "description": ""
+    },
+    {
+      "base": "Revenue Metrics",
+      "description": ""
+    },
+    {
+      "base": "Risk Assessment",
+      "description": ""
+    },
+    {
+      "base": "Dependency Management",
+      "description": ""
+    },
+    {
+      "base": "Tradeoff Decisions",
+      "description": ""
+    },
+    {
+      "base": "Decision Making",
+      "description": ""
+    },
+    {
+      "base": "Confluence",
+      "description": ""
+    },
+    {
+      "base": "Jira",
+      "description": ""
+    },
+    {
+      "base": "Roadmap Tools",
+      "description": ""
+    },
+    {
+      "base": "Wireframing",
+      "description": ""
+    },
+    {
+      "base": "Figma",
+      "description": ""
+    },
+    {
+      "base": "UX Collaboration",
+      "description": ""
+    },
+    {
+      "base": "Engineering Collaboration",
+      "description": ""
+    },
+    {
+      "base": "Launch Planning",
+      "description": ""
+    },
+    {
+      "base": "Post Launch Analysis",
+      "description": ""
+    },
+    {
+      "base": "Iteration",
+      "description": ""
+    },
+    {
+      "base": "Continuous Improvement",
+      "description": ""
+    },
+    {
+      "base": "UI Design",
+      "description": ""
+    },
+    {
+      "base": "UX Design",
+      "description": ""
+    },
+    {
+      "base": "User Experience",
+      "description": ""
+    },
+    {
+      "base": "User Interface",
+      "description": ""
+    },
+    {
+      "base": "User Interviews",
+      "description": ""
+    },
+    {
+      "base": "Usability Testing",
+      "description": ""
+    },
+    {
+      "base": "Heuristic Evaluation",
+      "description": ""
+    },
+    {
+      "base": "User Flows",
+      "description": ""
+    },
+    {
+      "base": "Information Architecture",
+      "description": ""
+    },
+    {
+      "base": "Low Fidelity Wireframes",
+      "description": ""
+    },
+    {
+      "base": "High Fidelity Wireframes",
+      "description": ""
+    },
+    {
+      "base": "Prototyping",
+      "description": ""
+    },
+    {
+      "base": "Interactive Prototypes",
+      "description": ""
+    },
+    {
+      "base": "Design Systems",
+      "description": ""
+    },
+    {
+      "base": "Component Libraries",
+      "description": ""
+    },
+    {
+      "base": "Style Guides",
+      "description": ""
+    },
+    {
+      "base": "Visual Design",
+      "description": ""
+    },
+    {
+      "base": "Layout Design",
+      "description": ""
+    },
+    {
+      "base": "Typography",
+      "description": ""
+    },
+    {
+      "base": "Color Theory",
+      "description": ""
+    },
+    {
+      "base": "Iconography",
+      "description": ""
+    },
+    {
+      "base": "Spacing",
+      "description": ""
+    },
+    {
+      "base": "Grid Systems",
+      "description": ""
+    },
+    {
+      "base": "Responsive Design",
+      "description": ""
+    },
+    {
+      "base": "Mobile First Design",
+      "description": ""
+    },
+    {
+      "base": "Web Design",
+      "description": ""
+    },
+    {
+      "base": "Accessibility",
+      "description": ""
+    },
+    {
+      "base": "WCAG",
+      "description": ""
+    },
+    {
+      "base": "Inclusive Design",
+      "description": ""
+    },
+    {
+      "base": "Interaction Design",
+      "description": ""
+    },
+    {
+      "base": "Micro Interactions",
+      "description": ""
+    },
+    {
+      "base": "Motion Design",
+      "description": ""
+    },
+    {
+      "base": "UX Writing",
+      "description": ""
+    },
+    {
+      "base": "Content Design",
+      "description": ""
+    },
+    {
+      "base": "Copywriting",
+      "description": ""
+    },
+    {
+      "base": "Design Thinking",
+      "description": ""
+    },
+    {
+      "base": "Ideation",
+      "description": ""
+    },
+    {
+      "base": "Sketching",
+      "description": ""
+    },
+    {
+      "base": "Adobe XD",
+      "description": ""
+    },
+    {
+      "base": "Sketch",
+      "description": ""
+    },
+    {
+      "base": "InVision",
+      "description": ""
+    },
+    {
+      "base": "Zeplin",
+      "description": ""
+    },
+    {
+      "base": "Usability Metrics",
+      "description": ""
+    },
+    {
+      "base": "Task Success Rate",
+      "description": ""
+    },
+    {
+      "base": "Heatmaps",
+      "description": ""
+    },
+    {
+      "base": "User Feedback",
+      "description": ""
+    },
+    {
+      "base": "Design Iteration",
+      "description": ""
+    },
+    {
+      "base": "Handoff to Developers",
+      "description": ""
+    },
+    {
+      "base": "Developer Collaboration",
+      "description": ""
+    },
+    {
+      "base": "Frontend Basics",
+      "description": ""
+    },
+    {
+      "base": "HTML",
+      "description": ""
+    },
+    {
+      "base": "CSS",
+      "description": ""
+    },
+    {
+      "base": "Design Documentation",
+      "description": ""
+    },
+    {
+      "base": "Consistency",
+      "description": ""
+    },
+    {
+      "base": "Associate Product Manager",
+      "description": ""
+    },
+    {
+      "base": "PRD Writing",
+      "description": ""
+    },
+    {
+      "base": "Funnel Optimization",
+      "description": ""
+    },
+    {
+      "base": "Dashboarding",
+      "description": ""
+    },
+    {
+      "base": "RAG",
+      "description": ""
+    },
+    {
+      "base": "AI Product Development",
+      "description": ""
+    },
+    {
+      "base": "GTM Strategy",
+      "description": ""
+    },
+    {
+      "base": "Feature Roadmapping",
+      "description": ""
+    },
+    {
+      "base": "Stakeholder Collaboration",
+      "description": ""
+    },
+    {
+      "base": "Software Development",
+      "description": ""
+    },
+    {
+      "base": "Full Stack Development",
+      "description": ""
+    },
+    {
+      "base": "JavaScript",
+      "description": ""
+    },
+    {
+      "base": "React",
+      "description": ""
+    },
+    {
+      "base": "Node.js",
+      "description": ""
+    },
+    {
+      "base": "MongoDB",
+      "description": ""
+    },
+    {
+      "base": "Java",
+      "description": ""
+    },
+    {
+      "base": "RESTful Services",
+      "description": ""
+    },
+    {
+      "base": "PostgreSQL",
+      "description": ""
+    },
+    {
+      "base": "MySQL",
+      "description": ""
+    },
+    {
+      "base": "Agile Methodologies",
+      "description": ""
+    },
+    {
+      "base": "Performance Optimization",
+      "description": ""
+    },
+    {
+      "base": "Object Oriented Design",
+      "description": ""
+    },
+    {
+      "base": "ETL Processes",
+      "description": ""
+    },
+    {
+      "base": "NLP",
+      "description": ""
+    },
+    {
+      "base": "Machine Learning",
+      "description": ""
+    },
+    {
+      "base": "Statistical Modeling",
+      "description": ""
+    },
+    {
+      "base": "R",
+      "description": ""
+    },
+    {
+      "base": "Scikit learn",
+      "description": ""
+    },
+    {
+      "base": "TensorFlow",
+      "description": ""
+    },
+    {
+      "base": "Feature Engineering",
+      "description": ""
+    },
+    {
+      "base": "Business Analytics",
+      "description": ""
+    },
+    {
+      "base": "KPI Reporting",
+      "description": ""
+    },
+    {
+      "base": "Financial Analytics",
+      "description": ""
+    },
+    {
+      "base": "Data Testing",
+      "description": ""
+    },
+    {
+      "base": "Apache Airflow",
+      "description": ""
+    },
+    {
+      "base": "ETL Workflows",
+      "description": ""
+    },
+    {
+      "base": "Google Cloud Platform",
+      "description": ""
+    },
+    {
+      "base": "Microsoft Azure",
+      "description": ""
+    },
+    {
+      "base": "Data Engineering",
+      "description": ""
+    },
+    {
+      "base": "BigQuery",
+      "description": ""
+    },
+    {
+      "base": "Sales",
+      "description": ""
+    },
+    {
+      "base": "Business Development",
+      "description": ""
+    },
+    {
+      "base": "Consultative Selling",
+      "description": ""
+    },
+    {
+      "base": "Cold Calling",
+      "description": ""
+    },
+    {
+      "base": "Solution Selling",
+      "description": ""
+    },
+    {
+      "base": "Account Management",
+      "description": ""
+    },
+    {
+      "base": "Lead Qualification",
+      "description": ""
+    },
+    {
+      "base": "CRM",
+      "description": ""
+    },
+    {
+      "base": "Salesforce",
+      "description": ""
+    },
+    {
+      "base": "MS Office",
+      "description": ""
+    },
+    {
+      "base": "Google Colab",
+      "description": ""
+    },
+    {
+      "base": "Stakeholder Engagement",
+      "description": ""
+    },
+    {
+      "base": "Conflict Resolution",
+      "description": ""
+    },
+    {
+      "base": "HubSpot",
+      "description": ""
+    },
+    {
+      "base": "Pipeline Management",
+      "description": ""
+    },
+    {
+      "base": "Territory Management",
+      "description": ""
+    },
+    {
+      "base": "Sales Forecasting",
+      "description": ""
+    },
+    {
+      "base": "Client Relationship",
+      "description": ""
+    },
+    {
+      "base": "Negotiation",
+      "description": ""
+    },
+    {
+      "base": "Customer Retention",
+      "description": ""
+    },
+    {
+      "base": "Revenue Growth",
+      "description": ""
+    },
+    {
+      "base": "Key Account Management",
+      "description": ""
+    },
+    {
+      "base": "Sales Strategy",
+      "description": ""
+    },
+    {
+      "base": "Predictive Analytics",
+      "description": ""
+    },
+    {
+      "base": "Data Mining",
+      "description": ""
+    },
+    {
+      "base": "Big Data",
+      "description": ""
+    },
+    {
+      "base": "Client Relationship Management",
+      "description": ""
+    },
+    {
+      "base": "Lead Nurturing",
+      "description": ""
+    },
+    {
+      "base": "Objection Handling",
+      "description": ""
+    },
+    {
+      "base": "Closing Deals",
+      "description": ""
+    },
+    {
+      "base": "Prospecting",
+      "description": ""
+    },
+    {
+      "base": "Account Expansion",
+      "description": ""
+    },
+    {
+      "base": "Upselling/Cross-selling",
+      "description": ""
+    },
+    {
+      "base": "Sales Reporting",
+      "description": ""
+    },
+    {
+      "base": "CRM Management",
+      "description": ""
+    },
+    {
+      "base": "Follow-up Discipline",
+      "description": ""
+    },
+    {
+      "base": "Pipeline Prioritization",
+      "description": ""
+    },
+    {
+      "base": "Product Demonstration",
+      "description": ""
+    },
+    {
+      "base": "Territory Planning",
+      "description": ""
+    },
+    {
+      "base": "Presentation Delivery",
+      "description": ""
+    },
+    {
+      "base": "Strategic Account Planning",
+      "description": ""
+    },
+    {
+      "base": "Miro",
+      "description": ""
+    },
+    {
+      "base": "Lucidchart",
+      "description": ""
+    },
+    {
+      "base": "Visio",
+      "description": ""
+    },
+    {
+      "base": "Business Analysis",
+      "description": ""
+    },
+    {
+      "base": "End-to-End",
+      "description": ""
+    },
+    {
+      "base": "Microservices",
+      "description": ""
+    },
+    {
+      "base": "Value Proposition",
+      "description": ""
+    },
+    {
+      "base": "Product Design",
+      "description": ""
+    },
+    {
+      "base": "PRDs",
+      "description": ""
+    },
+    {
+      "base": "Business Objectives",
+      "description": ""
+    },
+    {
+      "base": "API",
+      "description": ""
+    },
+    {
+      "base": "Azure",
+      "description": ""
+    },
+    {
+      "base": "Google Cloud",
+      "description": ""
+    },
+    {
+      "base": "Advanced Analytics",
+      "description": ""
+    },
+    {
+      "base": "Backend",
+      "description": ""
+    },
+    {
+      "base": "Data Analytics",
+      "description": ""
+    },
+    {
+      "base": "Data Architecture",
+      "description": ""
+    },
+    {
+      "base": "Data Strategy",
+      "description": ""
+    },
+    {
+      "base": "E-commerce",
+      "description": ""
+    },
+    {
+      "base": "Product Delivery",
+      "description": ""
+    },
+    {
+      "base": "Usage Statistics",
+      "description": ""
+    },
+    {
+      "base": "SRE",
+      "description": ""
+    },
+    {
+      "base": "Customer Needs",
+      "description": ""
+    },
+    {
+      "base": "Iterative Development",
+      "description": ""
+    },
+    {
+      "base": "Cross-functional",
+      "description": ""
+    },
+    {
+      "base": "Transformation",
+      "description": ""
+    }
+  ]
+}

@@ -19,6 +19,8 @@ import logging
 import sys
 import os
 from pathlib import Path
+from collections import deque
+from datetime import datetime
 
 # CRITICAL FIX: Redirect stderr to stdout at startup to prevent broken pipe errors
 # This must be done BEFORE any imports that might write to stderr
@@ -44,6 +46,23 @@ def safe_stderr_print(*args, **kwargs):
         # Silently ignore to prevent crashes
         pass
 
+# Log buffer to store recent logs for /health endpoint
+LOG_BUFFER = deque(maxlen=500)  # Store last 500 log entries
+
+class LogBufferHandler(logging.Handler):
+    """Custom handler that stores logs in a buffer"""
+    def emit(self, record):
+        try:
+            log_entry = {
+                'timestamp': datetime.now().isoformat(),
+                'level': record.levelname,
+                'logger': record.name,
+                'message': self.format(record)
+            }
+            LOG_BUFFER.append(log_entry)
+        except Exception:
+            pass  # Silently ignore errors in log buffering
+
 # Configure logging FIRST (before imports that might log)
 # Use a custom handler that safely handles broken pipe errors
 class SafeStreamHandler(logging.StreamHandler):
@@ -55,12 +74,18 @@ class SafeStreamHandler(logging.StreamHandler):
             # Silently ignore broken pipe errors in logging
             pass
 
-# Configure logging with safe handler
+# Configure logging with safe handler and log buffer
+log_buffer_handler = LogBufferHandler()
+log_buffer_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     force=True,  # Force reconfiguration if already configured
-    handlers=[SafeStreamHandler(sys.stdout)]  # Use stdout instead of stderr for logging
+    handlers=[
+        SafeStreamHandler(sys.stdout),  # Use stdout instead of stderr for logging
+        log_buffer_handler  # Also store in buffer for /health endpoint
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -71,6 +96,7 @@ root_logger.setLevel(logging.INFO)
 for handler in root_logger.handlers[:]:
     root_logger.removeHandler(handler)
 root_logger.addHandler(SafeStreamHandler(sys.stdout))
+root_logger.addHandler(log_buffer_handler)  # Add buffer handler to root logger too
 
 # Import skills matcher
 try:
@@ -144,6 +170,9 @@ class HealthResponse(BaseModel):
     status: str
     spacy_model_loaded: bool
     model_name: Optional[str] = None
+    logs: Optional[List[Dict[str, str]]] = None  # Recent logs
+    log_count: Optional[int] = None  # Total number of logs in buffer
+    skills_info: Optional[Dict[str, Any]] = None  # Skills database information
 
 
 # ============================================================================
@@ -834,19 +863,51 @@ def extract_keywords_from_text(text: str) -> List[str]:
 # ============================================================================
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check():
+async def health_check(include_logs: bool = True, log_limit: int = 100):
     """
     Health check endpoint to verify service status.
     
+    Args:
+        include_logs: Whether to include recent logs in response (default: True)
+        log_limit: Maximum number of log entries to return (default: 100, max: 500)
+    
     Returns:
-        Health status and spaCy model information
+        Health status, spaCy model information, and recent logs
     """
     global nlp
+    
+    # Get recent logs if requested
+    logs = None
+    log_count = len(LOG_BUFFER)
+    
+    if include_logs:
+        # Limit the number of logs returned
+        limit = min(log_limit, 500)
+        recent_logs = list(LOG_BUFFER)[-limit:] if LOG_BUFFER else []
+        logs = recent_logs
+    
+    # Get skills database info if available
+    skills_info = {}
+    try:
+        if SKILLS_MATCHER_AVAILABLE:
+            from skills_matcher import get_skills_database
+            skills_db = get_skills_database()
+            if skills_db and skills_db.loaded:
+                skills_info = {
+                    "total_skills": len(skills_db.skills),
+                    "custom_keywords_count": len(skills_db.custom_keywords_normalized) if hasattr(skills_db, 'custom_keywords_normalized') else 0,
+                    "classifier_available": skills_db.classifier.available if hasattr(skills_db, 'classifier') else False
+                }
+    except Exception:
+        pass  # Ignore errors getting skills info
     
     return HealthResponse(
         status="healthy",
         spacy_model_loaded=nlp is not None,
-        model_name="en_core_web_sm" if nlp is not None else None
+        model_name="en_core_web_sm" if nlp is not None else None,
+        logs=logs,
+        log_count=log_count,
+        skills_info=skills_info if skills_info else None
     )
 
 
@@ -1023,6 +1084,11 @@ async def _extract_skills_internal(request: ExtractSkillsRequest):
         
         # Extract skills using PhraseMatcher with context filtering
         logger.info(f"Extracting skills from text (length: {len(request.text)})")
+        logger.info(f"Text preview: {request.text[:100]}...")
+        logger.info(f"Skills database loaded: {skills_db.loaded if hasattr(skills_db, 'loaded') else 'unknown'}")
+        logger.info(f"Total skills in database: {len(skills_db.skills) if hasattr(skills_db, 'skills') else 'unknown'}")
+        if hasattr(skills_db, 'custom_keywords_normalized'):
+            logger.info(f"Custom keywords count: {len(skills_db.custom_keywords_normalized)}")
         try:
             matches = extract_skills_with_phrasematcher(
                 request.text,
