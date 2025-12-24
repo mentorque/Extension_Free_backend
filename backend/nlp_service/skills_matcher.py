@@ -1205,6 +1205,139 @@ class SkillClassifier:
             logger.warning(f"⚠️  Error in fallback classification for '{skill}': {e}")
             return True
     
+    def batch_classify_skills(self, skills: List[str], threshold: float = 0.15, batch_size: int = 500) -> set:
+        """
+        Batch classify multiple skills at once (MUCH faster than one-by-one).
+        
+        Args:
+            skills: List of skills to classify
+            threshold: Confidence margin (0.15 = 15% more similar to tech than non-tech)
+            batch_size: Number of skills to process in each batch (to avoid memory issues)
+        
+        Returns:
+            Set of skills that passed the technical filter
+        """
+        if not self.available or not self.model:
+            return set(skills)  # Fallback: allow all if classifier unavailable
+        
+        # Check if all three embedding categories are available
+        if (self.important_tech_embeddings is None or 
+            self.less_important_tech_embeddings is None or 
+            self.non_tech_embeddings is None):
+            # Fallback to combined tech_embeddings if available
+            if self.tech_embeddings is not None and self.non_tech_embeddings is not None:
+                return self._batch_classify_with_combined_embeddings(skills, threshold, batch_size)
+            return set(skills)  # Fallback: allow all if embeddings unavailable
+        
+        import time
+        start_time = time.time()
+        technical_skills = set()
+        
+        try:
+            # Process in batches to avoid memory issues
+            for i in range(0, len(skills), batch_size):
+                batch = skills[i:i + batch_size]
+                
+                # Batch encode all skills in this batch at once (MUCH faster)
+                try:
+                    skill_embeddings = self.model.encode(batch, convert_to_tensor=True, show_progress_bar=False)
+                except (BrokenPipeError, OSError) as e:
+                    # Handle broken pipe during encoding
+                    if isinstance(e, OSError) and e.errno != 32:
+                        raise  # Re-raise if not broken pipe
+                    # For broken pipe, fallback to allowing all skills in batch
+                    technical_skills.update(batch)
+                    continue
+                
+                # Batch compute similarities to Important Tech examples
+                important_tech_similarities = util.cos_sim(skill_embeddings, self.important_tech_embeddings)
+                max_important_tech_sims = torch.max(important_tech_similarities, dim=1)[0].cpu().numpy()
+                
+                # Batch compute similarities to Less Important Tech examples
+                less_important_tech_similarities = util.cos_sim(skill_embeddings, self.less_important_tech_embeddings)
+                max_less_important_tech_sims = torch.max(less_important_tech_similarities, dim=1)[0].cpu().numpy()
+                
+                # Batch compute similarities to Non-Tech examples
+                non_tech_similarities = util.cos_sim(skill_embeddings, self.non_tech_embeddings)
+                max_non_tech_sims = torch.max(non_tech_similarities, dim=1)[0].cpu().numpy()
+                
+                # Determine which skills are technical (vectorized operations)
+                import numpy as np
+                max_tech_sims = np.maximum(max_important_tech_sims, max_less_important_tech_sims)
+                confidence_important = max_important_tech_sims - max_non_tech_sims
+                confidence_less_important = max_less_important_tech_sims - max_non_tech_sims
+                max_confidences = np.maximum(confidence_important, confidence_less_important)
+                
+                min_tech_similarity = 0.3  # Must be at least 30% similar to some tech example
+                
+                # Vectorized filtering
+                is_technical_mask = (
+                    (max_confidences > threshold) &  # Must be more similar to tech than non-tech
+                    (max_tech_sims > min_tech_similarity)  # Must have reasonable tech similarity
+                )
+                
+                # Add technical skills to result set
+                for j, skill in enumerate(batch):
+                    if is_technical_mask[j]:
+                        technical_skills.add(skill)
+                        self.kept_count += 1
+                    else:
+                        self.filtered_count += 1
+                    self.classification_count += 1
+                
+                # Progress update
+                if (i + batch_size) % 1000 == 0 or (i + batch_size) >= len(skills):
+                    progress_pct = min((i + batch_size) / len(skills) * 100, 100)
+                    logger.info(f"Batch classification progress: {min(i + batch_size, len(skills))}/{len(skills)} ({progress_pct:.1f}%)")
+            
+            elapsed_ms = (time.time() - start_time) * 1000
+            self.total_time_ms += elapsed_ms
+            
+            logger.info(f"✅ Batch classification complete in {elapsed_ms:.0f}ms ({elapsed_ms/len(skills):.2f}ms per skill)")
+            
+            return technical_skills
+            
+        except Exception as e:
+            logger.warning(f"⚠️  Error in batch classification: {e}")
+            return set(skills)  # Fallback: allow all if classification fails
+    
+    def _batch_classify_with_combined_embeddings(self, skills: List[str], threshold: float, batch_size: int) -> set:
+        """Fallback batch classification using combined tech_embeddings (backwards compatibility)"""
+        if not self.available or not self.model:
+            return set(skills)
+        
+        technical_skills = set()
+        
+        try:
+            for i in range(0, len(skills), batch_size):
+                batch = skills[i:i + batch_size]
+                skill_embeddings = self.model.encode(batch, convert_to_tensor=True, show_progress_bar=False)
+                
+                tech_similarities = util.cos_sim(skill_embeddings, self.tech_embeddings)
+                max_tech_sims = torch.max(tech_similarities, dim=1)[0].cpu().numpy()
+                
+                non_tech_similarities = util.cos_sim(skill_embeddings, self.non_tech_embeddings)
+                max_non_tech_sims = torch.max(non_tech_similarities, dim=1)[0].cpu().numpy()
+                
+                confidences = max_tech_sims - max_non_tech_sims
+                min_tech_similarity = 0.3
+                
+                is_technical_mask = (confidences > threshold) & (max_tech_sims > min_tech_similarity)
+                
+                for j, skill in enumerate(batch):
+                    if is_technical_mask[j]:
+                        technical_skills.add(skill)
+                        self.kept_count += 1
+                    else:
+                        self.filtered_count += 1
+                    self.classification_count += 1
+                    
+        except Exception as e:
+            logger.warning(f"⚠️  Error in fallback batch classification: {e}")
+            return set(skills)
+        
+        return technical_skills
+    
     def get_stats(self) -> dict:
         """Get classification statistics"""
         avg_time = (self.total_time_ms / self.classification_count) if self.classification_count > 0 else 0
@@ -1257,9 +1390,10 @@ class SkillsDatabase:
             filtered_count = 0
             total_processed = 0
             
+            # First pass: collect all skills from CSV
+            all_skills = []
             with open(self.csv_path, 'r', encoding='utf-8', errors='ignore') as f:
                 reader = csv.DictReader(f)
-                # Count total rows first for progress
                 rows = list(reader)
                 total_rows = len(rows)
                 
@@ -1269,26 +1403,38 @@ class SkillsDatabase:
                         # Clean up quotes and newlines
                         skill = skill.replace('"', '').replace('\n', ' ').strip()
                         if skill and len(skill) > 1:  # Skip single characters
+                            all_skills.append(skill)
                             total_processed += 1
-                            
-                            # PRIMARY FILTER: Semantic classification using embeddings
-                            # This filters out non-technical terms from skills.csv using ML
-                            if self.classifier.available:
-                                # Show progress every 100 skills or at milestones
-                                if total_processed % 100 == 0 or total_processed == total_rows:
-                                    progress_pct = (total_processed / total_rows * 100) if total_rows > 0 else 0
-                                    safe_stderr_print(f"\r🔄 Loading skills: {total_processed}/{total_rows} ({progress_pct:.1f}%) - Kept: {loaded_count}, Filtered: {filtered_count}", end='', flush=True)
-                                
-                                if not self.classifier.is_technical_skill(skill, threshold=0.15):
-                                    filtered_count += 1
-                                    continue
-                            
-                            skills_set.add(skill)
-                            loaded_count += 1
+            
+            # Batch classification if classifier is available (MUCH faster than one-by-one)
+            if self.classifier.available and all_skills:
+                logger.info(f"Batch classifying {len(all_skills)} skills...")
+                # Use batch classification method
+                technical_skills = self.classifier.batch_classify_skills(all_skills, threshold=0.15)
+                # technical_skills is a set of skills that passed the filter
+                skills_set = technical_skills
+                loaded_count = len(technical_skills)
+                filtered_count = len(all_skills) - len(technical_skills)
+                logger.info(f"✅ Batch classification complete: {loaded_count} kept, {filtered_count} filtered")
                 
-                # Final progress update
-                if self.classifier.available and total_processed > 0:
-                    safe_stderr_print(f"\r✅ Loaded skills: {loaded_count} kept, {filtered_count} filtered from {total_processed} total", flush=True)
+                # Log stats
+                if self.classifier.available:
+                    stats = self.classifier.get_stats()
+                    logger.info("=" * 60)
+                    logger.info("📊 Sentence Transformers Classification Stats")
+                    logger.info("=" * 60)
+                    logger.info(f"   Total classifications: {stats['classifications']}")
+                    logger.info(f"   ✅ Kept (technical): {stats['kept']}")
+                    logger.info(f"   🚫 Filtered (non-technical): {stats['filtered']}")
+                    logger.info(f"   Filter rate: {stats['filter_rate']:.1f}%")
+                    logger.info(f"   Total time: {stats['total_time_ms']:.0f}ms")
+                    logger.info(f"   Avg time per skill: {stats['avg_time_ms']:.2f}ms")
+                    logger.info("=" * 60)
+            else:
+                # No classifier or classifier unavailable - load all skills
+                skills_set = set(all_skills)
+                loaded_count = len(all_skills)
+                filtered_count = 0
             
             if self.classifier.available:
                 stats = self.classifier.get_stats()
