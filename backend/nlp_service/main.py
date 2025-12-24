@@ -215,28 +215,41 @@ def load_spacy_model():
 @app.on_event("startup")
 async def startup_event():
     """Pre-load the spaCy model and embeddings at startup to avoid delays on first request"""
-    try:
-        load_spacy_model()
-        logger.info("NLP service startup complete")
-        
-        # Pre-load skills database (this loads embeddings from cache if available)
+    import asyncio
+    import concurrent.futures
+    
+    def load_resources_sync():
+        """Load resources synchronously (runs in thread pool)"""
         try:
-            from .skills_matcher import get_skills_database
-        except ImportError:
-            from skills_matcher import get_skills_database
-        
-        skills_db = get_skills_database()
-        if skills_db and skills_db.classifier and skills_db.classifier.available:
-            if (skills_db.classifier.important_tech_embeddings is not None and
-                skills_db.classifier.less_important_tech_embeddings is not None and
-                skills_db.classifier.non_tech_embeddings is not None):
-                logger.info("✅ Pre-computed embeddings loaded from cache - no computation needed")
+            # Load spaCy model first (quick)
+            load_spacy_model()
+            logger.info("NLP service startup complete - spaCy model loaded")
+            
+            # Pre-load skills database (this loads embeddings from cache if available)
+            # This can take time, so we do it in background thread
+            try:
+                from .skills_matcher import get_skills_database
+            except ImportError:
+                from skills_matcher import get_skills_database
+            
+            skills_db = get_skills_database()
+            if skills_db and skills_db.classifier and skills_db.classifier.available:
+                if (skills_db.classifier.important_tech_embeddings is not None and
+                    skills_db.classifier.less_important_tech_embeddings is not None and
+                    skills_db.classifier.non_tech_embeddings is not None):
+                    logger.info("✅ Pre-computed embeddings loaded from cache - no computation needed")
+                else:
+                    logger.warning("⚠️  Embeddings cache not found - will compute on first request (slow)")
             else:
-                logger.warning("⚠️  Embeddings cache not found - will compute on first request (slow)")
-        else:
-            logger.warning("⚠️  Sentence Transformers not available - using rule-based filters only")
-    except Exception as e:
-        logger.error(f"Warning: Failed to pre-load during startup: {e}")
+                logger.warning("⚠️  Sentence Transformers not available - using rule-based filters only")
+        except Exception as e:
+            logger.error(f"Warning: Failed to pre-load during startup: {e}")
+    
+    # Run blocking operations in thread pool to avoid blocking startup
+    # This allows the service to respond to health checks immediately
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(None, load_resources_sync)
+    logger.info("🚀 FastAPI app started - resources loading in background thread")
 
 
 # ============================================================================
