@@ -235,6 +235,16 @@ exports.Prisma.UserStatusScalarFieldEnum = {
   thirdMentorCallScheduledAt: 'thirdMentorCallScheduledAt'
 };
 
+exports.Prisma.FreetrialUsersScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  email: 'email',
+  contactNumber: 'contactNumber',
+  occupation: 'occupation',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -268,7 +278,8 @@ exports.Prisma.ModelName = {
   Progress: 'Progress',
   AdminMentor: 'AdminMentor',
   MentorSessionNote: 'MentorSessionNote',
-  UserStatus: 'UserStatus'
+  UserStatus: 'UserStatus',
+  FreetrialUsers: 'FreetrialUsers'
 };
 
 /**

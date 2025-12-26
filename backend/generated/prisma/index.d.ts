@@ -48,6 +48,11 @@ export type MentorSessionNote = $Result.DefaultSelection<Prisma.$MentorSessionNo
  * 
  */
 export type UserStatus = $Result.DefaultSelection<Prisma.$UserStatusPayload>
+/**
+ * Model FreetrialUsers
+ * 
+ */
+export type FreetrialUsers = $Result.DefaultSelection<Prisma.$FreetrialUsersPayload>
 
 /**
  * ##  Prisma Client ʲˢ
@@ -236,6 +241,16 @@ export class PrismaClient<
     * ```
     */
   get userStatus(): Prisma.UserStatusDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.freetrialUsers`: Exposes CRUD operations for the **FreetrialUsers** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more FreetrialUsers
+    * const freetrialUsers = await prisma.freetrialUsers.findMany()
+    * ```
+    */
+  get freetrialUsers(): Prisma.FreetrialUsersDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -682,7 +697,8 @@ export namespace Prisma {
     Progress: 'Progress',
     AdminMentor: 'AdminMentor',
     MentorSessionNote: 'MentorSessionNote',
-    UserStatus: 'UserStatus'
+    UserStatus: 'UserStatus',
+    FreetrialUsers: 'FreetrialUsers'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -701,7 +717,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "apiKey" | "appliedJob" | "progress" | "adminMentor" | "mentorSessionNote" | "userStatus"
+      modelProps: "user" | "apiKey" | "appliedJob" | "progress" | "adminMentor" | "mentorSessionNote" | "userStatus" | "freetrialUsers"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1223,6 +1239,80 @@ export namespace Prisma {
           }
         }
       }
+      FreetrialUsers: {
+        payload: Prisma.$FreetrialUsersPayload<ExtArgs>
+        fields: Prisma.FreetrialUsersFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.FreetrialUsersFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.FreetrialUsersFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload>
+          }
+          findFirst: {
+            args: Prisma.FreetrialUsersFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.FreetrialUsersFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload>
+          }
+          findMany: {
+            args: Prisma.FreetrialUsersFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload>[]
+          }
+          create: {
+            args: Prisma.FreetrialUsersCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload>
+          }
+          createMany: {
+            args: Prisma.FreetrialUsersCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.FreetrialUsersCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload>[]
+          }
+          delete: {
+            args: Prisma.FreetrialUsersDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload>
+          }
+          update: {
+            args: Prisma.FreetrialUsersUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload>
+          }
+          deleteMany: {
+            args: Prisma.FreetrialUsersDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.FreetrialUsersUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.FreetrialUsersUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload>[]
+          }
+          upsert: {
+            args: Prisma.FreetrialUsersUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$FreetrialUsersPayload>
+          }
+          aggregate: {
+            args: Prisma.FreetrialUsersAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateFreetrialUsers>
+          }
+          groupBy: {
+            args: Prisma.FreetrialUsersGroupByArgs<ExtArgs>
+            result: $Utils.Optional<FreetrialUsersGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.FreetrialUsersCountArgs<ExtArgs>
+            result: $Utils.Optional<FreetrialUsersCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -1326,6 +1416,7 @@ export namespace Prisma {
     adminMentor?: AdminMentorOmit
     mentorSessionNote?: MentorSessionNoteOmit
     userStatus?: UserStatusOmit
+    freetrialUsers?: FreetrialUsersOmit
   }
 
   /* Types for Logging */
@@ -9786,6 +9877,1027 @@ export namespace Prisma {
 
 
   /**
+   * Model FreetrialUsers
+   */
+
+  export type AggregateFreetrialUsers = {
+    _count: FreetrialUsersCountAggregateOutputType | null
+    _min: FreetrialUsersMinAggregateOutputType | null
+    _max: FreetrialUsersMaxAggregateOutputType | null
+  }
+
+  export type FreetrialUsersMinAggregateOutputType = {
+    id: string | null
+    name: string | null
+    email: string | null
+    contactNumber: string | null
+    occupation: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type FreetrialUsersMaxAggregateOutputType = {
+    id: string | null
+    name: string | null
+    email: string | null
+    contactNumber: string | null
+    occupation: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type FreetrialUsersCountAggregateOutputType = {
+    id: number
+    name: number
+    email: number
+    contactNumber: number
+    occupation: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type FreetrialUsersMinAggregateInputType = {
+    id?: true
+    name?: true
+    email?: true
+    contactNumber?: true
+    occupation?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type FreetrialUsersMaxAggregateInputType = {
+    id?: true
+    name?: true
+    email?: true
+    contactNumber?: true
+    occupation?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type FreetrialUsersCountAggregateInputType = {
+    id?: true
+    name?: true
+    email?: true
+    contactNumber?: true
+    occupation?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type FreetrialUsersAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which FreetrialUsers to aggregate.
+     */
+    where?: FreetrialUsersWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of FreetrialUsers to fetch.
+     */
+    orderBy?: FreetrialUsersOrderByWithRelationInput | FreetrialUsersOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: FreetrialUsersWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` FreetrialUsers from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` FreetrialUsers.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned FreetrialUsers
+    **/
+    _count?: true | FreetrialUsersCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: FreetrialUsersMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: FreetrialUsersMaxAggregateInputType
+  }
+
+  export type GetFreetrialUsersAggregateType<T extends FreetrialUsersAggregateArgs> = {
+        [P in keyof T & keyof AggregateFreetrialUsers]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateFreetrialUsers[P]>
+      : GetScalarType<T[P], AggregateFreetrialUsers[P]>
+  }
+
+
+
+
+  export type FreetrialUsersGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: FreetrialUsersWhereInput
+    orderBy?: FreetrialUsersOrderByWithAggregationInput | FreetrialUsersOrderByWithAggregationInput[]
+    by: FreetrialUsersScalarFieldEnum[] | FreetrialUsersScalarFieldEnum
+    having?: FreetrialUsersScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: FreetrialUsersCountAggregateInputType | true
+    _min?: FreetrialUsersMinAggregateInputType
+    _max?: FreetrialUsersMaxAggregateInputType
+  }
+
+  export type FreetrialUsersGroupByOutputType = {
+    id: string
+    name: string
+    email: string
+    contactNumber: string
+    occupation: string | null
+    createdAt: Date
+    updatedAt: Date
+    _count: FreetrialUsersCountAggregateOutputType | null
+    _min: FreetrialUsersMinAggregateOutputType | null
+    _max: FreetrialUsersMaxAggregateOutputType | null
+  }
+
+  type GetFreetrialUsersGroupByPayload<T extends FreetrialUsersGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<FreetrialUsersGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof FreetrialUsersGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], FreetrialUsersGroupByOutputType[P]>
+            : GetScalarType<T[P], FreetrialUsersGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type FreetrialUsersSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    email?: boolean
+    contactNumber?: boolean
+    occupation?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["freetrialUsers"]>
+
+  export type FreetrialUsersSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    email?: boolean
+    contactNumber?: boolean
+    occupation?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["freetrialUsers"]>
+
+  export type FreetrialUsersSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    email?: boolean
+    contactNumber?: boolean
+    occupation?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["freetrialUsers"]>
+
+  export type FreetrialUsersSelectScalar = {
+    id?: boolean
+    name?: boolean
+    email?: boolean
+    contactNumber?: boolean
+    occupation?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type FreetrialUsersOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "email" | "contactNumber" | "occupation" | "createdAt" | "updatedAt", ExtArgs["result"]["freetrialUsers"]>
+
+  export type $FreetrialUsersPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "FreetrialUsers"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      name: string
+      email: string
+      contactNumber: string
+      occupation: string | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["freetrialUsers"]>
+    composites: {}
+  }
+
+  type FreetrialUsersGetPayload<S extends boolean | null | undefined | FreetrialUsersDefaultArgs> = $Result.GetResult<Prisma.$FreetrialUsersPayload, S>
+
+  type FreetrialUsersCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<FreetrialUsersFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: FreetrialUsersCountAggregateInputType | true
+    }
+
+  export interface FreetrialUsersDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['FreetrialUsers'], meta: { name: 'FreetrialUsers' } }
+    /**
+     * Find zero or one FreetrialUsers that matches the filter.
+     * @param {FreetrialUsersFindUniqueArgs} args - Arguments to find a FreetrialUsers
+     * @example
+     * // Get one FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends FreetrialUsersFindUniqueArgs>(args: SelectSubset<T, FreetrialUsersFindUniqueArgs<ExtArgs>>): Prisma__FreetrialUsersClient<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one FreetrialUsers that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {FreetrialUsersFindUniqueOrThrowArgs} args - Arguments to find a FreetrialUsers
+     * @example
+     * // Get one FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends FreetrialUsersFindUniqueOrThrowArgs>(args: SelectSubset<T, FreetrialUsersFindUniqueOrThrowArgs<ExtArgs>>): Prisma__FreetrialUsersClient<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first FreetrialUsers that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {FreetrialUsersFindFirstArgs} args - Arguments to find a FreetrialUsers
+     * @example
+     * // Get one FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends FreetrialUsersFindFirstArgs>(args?: SelectSubset<T, FreetrialUsersFindFirstArgs<ExtArgs>>): Prisma__FreetrialUsersClient<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first FreetrialUsers that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {FreetrialUsersFindFirstOrThrowArgs} args - Arguments to find a FreetrialUsers
+     * @example
+     * // Get one FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends FreetrialUsersFindFirstOrThrowArgs>(args?: SelectSubset<T, FreetrialUsersFindFirstOrThrowArgs<ExtArgs>>): Prisma__FreetrialUsersClient<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more FreetrialUsers that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {FreetrialUsersFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.findMany()
+     * 
+     * // Get first 10 FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const freetrialUsersWithIdOnly = await prisma.freetrialUsers.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends FreetrialUsersFindManyArgs>(args?: SelectSubset<T, FreetrialUsersFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a FreetrialUsers.
+     * @param {FreetrialUsersCreateArgs} args - Arguments to create a FreetrialUsers.
+     * @example
+     * // Create one FreetrialUsers
+     * const FreetrialUsers = await prisma.freetrialUsers.create({
+     *   data: {
+     *     // ... data to create a FreetrialUsers
+     *   }
+     * })
+     * 
+     */
+    create<T extends FreetrialUsersCreateArgs>(args: SelectSubset<T, FreetrialUsersCreateArgs<ExtArgs>>): Prisma__FreetrialUsersClient<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many FreetrialUsers.
+     * @param {FreetrialUsersCreateManyArgs} args - Arguments to create many FreetrialUsers.
+     * @example
+     * // Create many FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends FreetrialUsersCreateManyArgs>(args?: SelectSubset<T, FreetrialUsersCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many FreetrialUsers and returns the data saved in the database.
+     * @param {FreetrialUsersCreateManyAndReturnArgs} args - Arguments to create many FreetrialUsers.
+     * @example
+     * // Create many FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many FreetrialUsers and only return the `id`
+     * const freetrialUsersWithIdOnly = await prisma.freetrialUsers.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends FreetrialUsersCreateManyAndReturnArgs>(args?: SelectSubset<T, FreetrialUsersCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a FreetrialUsers.
+     * @param {FreetrialUsersDeleteArgs} args - Arguments to delete one FreetrialUsers.
+     * @example
+     * // Delete one FreetrialUsers
+     * const FreetrialUsers = await prisma.freetrialUsers.delete({
+     *   where: {
+     *     // ... filter to delete one FreetrialUsers
+     *   }
+     * })
+     * 
+     */
+    delete<T extends FreetrialUsersDeleteArgs>(args: SelectSubset<T, FreetrialUsersDeleteArgs<ExtArgs>>): Prisma__FreetrialUsersClient<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one FreetrialUsers.
+     * @param {FreetrialUsersUpdateArgs} args - Arguments to update one FreetrialUsers.
+     * @example
+     * // Update one FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends FreetrialUsersUpdateArgs>(args: SelectSubset<T, FreetrialUsersUpdateArgs<ExtArgs>>): Prisma__FreetrialUsersClient<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more FreetrialUsers.
+     * @param {FreetrialUsersDeleteManyArgs} args - Arguments to filter FreetrialUsers to delete.
+     * @example
+     * // Delete a few FreetrialUsers
+     * const { count } = await prisma.freetrialUsers.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends FreetrialUsersDeleteManyArgs>(args?: SelectSubset<T, FreetrialUsersDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more FreetrialUsers.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {FreetrialUsersUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends FreetrialUsersUpdateManyArgs>(args: SelectSubset<T, FreetrialUsersUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more FreetrialUsers and returns the data updated in the database.
+     * @param {FreetrialUsersUpdateManyAndReturnArgs} args - Arguments to update many FreetrialUsers.
+     * @example
+     * // Update many FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more FreetrialUsers and only return the `id`
+     * const freetrialUsersWithIdOnly = await prisma.freetrialUsers.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends FreetrialUsersUpdateManyAndReturnArgs>(args: SelectSubset<T, FreetrialUsersUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one FreetrialUsers.
+     * @param {FreetrialUsersUpsertArgs} args - Arguments to update or create a FreetrialUsers.
+     * @example
+     * // Update or create a FreetrialUsers
+     * const freetrialUsers = await prisma.freetrialUsers.upsert({
+     *   create: {
+     *     // ... data to create a FreetrialUsers
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the FreetrialUsers we want to update
+     *   }
+     * })
+     */
+    upsert<T extends FreetrialUsersUpsertArgs>(args: SelectSubset<T, FreetrialUsersUpsertArgs<ExtArgs>>): Prisma__FreetrialUsersClient<$Result.GetResult<Prisma.$FreetrialUsersPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of FreetrialUsers.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {FreetrialUsersCountArgs} args - Arguments to filter FreetrialUsers to count.
+     * @example
+     * // Count the number of FreetrialUsers
+     * const count = await prisma.freetrialUsers.count({
+     *   where: {
+     *     // ... the filter for the FreetrialUsers we want to count
+     *   }
+     * })
+    **/
+    count<T extends FreetrialUsersCountArgs>(
+      args?: Subset<T, FreetrialUsersCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], FreetrialUsersCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a FreetrialUsers.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {FreetrialUsersAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends FreetrialUsersAggregateArgs>(args: Subset<T, FreetrialUsersAggregateArgs>): Prisma.PrismaPromise<GetFreetrialUsersAggregateType<T>>
+
+    /**
+     * Group by FreetrialUsers.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {FreetrialUsersGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends FreetrialUsersGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: FreetrialUsersGroupByArgs['orderBy'] }
+        : { orderBy?: FreetrialUsersGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, FreetrialUsersGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetFreetrialUsersGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the FreetrialUsers model
+   */
+  readonly fields: FreetrialUsersFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for FreetrialUsers.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__FreetrialUsersClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the FreetrialUsers model
+   */
+  interface FreetrialUsersFieldRefs {
+    readonly id: FieldRef<"FreetrialUsers", 'String'>
+    readonly name: FieldRef<"FreetrialUsers", 'String'>
+    readonly email: FieldRef<"FreetrialUsers", 'String'>
+    readonly contactNumber: FieldRef<"FreetrialUsers", 'String'>
+    readonly occupation: FieldRef<"FreetrialUsers", 'String'>
+    readonly createdAt: FieldRef<"FreetrialUsers", 'DateTime'>
+    readonly updatedAt: FieldRef<"FreetrialUsers", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * FreetrialUsers findUnique
+   */
+  export type FreetrialUsersFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * Filter, which FreetrialUsers to fetch.
+     */
+    where: FreetrialUsersWhereUniqueInput
+  }
+
+  /**
+   * FreetrialUsers findUniqueOrThrow
+   */
+  export type FreetrialUsersFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * Filter, which FreetrialUsers to fetch.
+     */
+    where: FreetrialUsersWhereUniqueInput
+  }
+
+  /**
+   * FreetrialUsers findFirst
+   */
+  export type FreetrialUsersFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * Filter, which FreetrialUsers to fetch.
+     */
+    where?: FreetrialUsersWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of FreetrialUsers to fetch.
+     */
+    orderBy?: FreetrialUsersOrderByWithRelationInput | FreetrialUsersOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for FreetrialUsers.
+     */
+    cursor?: FreetrialUsersWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` FreetrialUsers from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` FreetrialUsers.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of FreetrialUsers.
+     */
+    distinct?: FreetrialUsersScalarFieldEnum | FreetrialUsersScalarFieldEnum[]
+  }
+
+  /**
+   * FreetrialUsers findFirstOrThrow
+   */
+  export type FreetrialUsersFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * Filter, which FreetrialUsers to fetch.
+     */
+    where?: FreetrialUsersWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of FreetrialUsers to fetch.
+     */
+    orderBy?: FreetrialUsersOrderByWithRelationInput | FreetrialUsersOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for FreetrialUsers.
+     */
+    cursor?: FreetrialUsersWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` FreetrialUsers from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` FreetrialUsers.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of FreetrialUsers.
+     */
+    distinct?: FreetrialUsersScalarFieldEnum | FreetrialUsersScalarFieldEnum[]
+  }
+
+  /**
+   * FreetrialUsers findMany
+   */
+  export type FreetrialUsersFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * Filter, which FreetrialUsers to fetch.
+     */
+    where?: FreetrialUsersWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of FreetrialUsers to fetch.
+     */
+    orderBy?: FreetrialUsersOrderByWithRelationInput | FreetrialUsersOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing FreetrialUsers.
+     */
+    cursor?: FreetrialUsersWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` FreetrialUsers from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` FreetrialUsers.
+     */
+    skip?: number
+    distinct?: FreetrialUsersScalarFieldEnum | FreetrialUsersScalarFieldEnum[]
+  }
+
+  /**
+   * FreetrialUsers create
+   */
+  export type FreetrialUsersCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * The data needed to create a FreetrialUsers.
+     */
+    data: XOR<FreetrialUsersCreateInput, FreetrialUsersUncheckedCreateInput>
+  }
+
+  /**
+   * FreetrialUsers createMany
+   */
+  export type FreetrialUsersCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many FreetrialUsers.
+     */
+    data: FreetrialUsersCreateManyInput | FreetrialUsersCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * FreetrialUsers createManyAndReturn
+   */
+  export type FreetrialUsersCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * The data used to create many FreetrialUsers.
+     */
+    data: FreetrialUsersCreateManyInput | FreetrialUsersCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * FreetrialUsers update
+   */
+  export type FreetrialUsersUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * The data needed to update a FreetrialUsers.
+     */
+    data: XOR<FreetrialUsersUpdateInput, FreetrialUsersUncheckedUpdateInput>
+    /**
+     * Choose, which FreetrialUsers to update.
+     */
+    where: FreetrialUsersWhereUniqueInput
+  }
+
+  /**
+   * FreetrialUsers updateMany
+   */
+  export type FreetrialUsersUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update FreetrialUsers.
+     */
+    data: XOR<FreetrialUsersUpdateManyMutationInput, FreetrialUsersUncheckedUpdateManyInput>
+    /**
+     * Filter which FreetrialUsers to update
+     */
+    where?: FreetrialUsersWhereInput
+    /**
+     * Limit how many FreetrialUsers to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * FreetrialUsers updateManyAndReturn
+   */
+  export type FreetrialUsersUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * The data used to update FreetrialUsers.
+     */
+    data: XOR<FreetrialUsersUpdateManyMutationInput, FreetrialUsersUncheckedUpdateManyInput>
+    /**
+     * Filter which FreetrialUsers to update
+     */
+    where?: FreetrialUsersWhereInput
+    /**
+     * Limit how many FreetrialUsers to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * FreetrialUsers upsert
+   */
+  export type FreetrialUsersUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * The filter to search for the FreetrialUsers to update in case it exists.
+     */
+    where: FreetrialUsersWhereUniqueInput
+    /**
+     * In case the FreetrialUsers found by the `where` argument doesn't exist, create a new FreetrialUsers with this data.
+     */
+    create: XOR<FreetrialUsersCreateInput, FreetrialUsersUncheckedCreateInput>
+    /**
+     * In case the FreetrialUsers was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<FreetrialUsersUpdateInput, FreetrialUsersUncheckedUpdateInput>
+  }
+
+  /**
+   * FreetrialUsers delete
+   */
+  export type FreetrialUsersDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+    /**
+     * Filter which FreetrialUsers to delete.
+     */
+    where: FreetrialUsersWhereUniqueInput
+  }
+
+  /**
+   * FreetrialUsers deleteMany
+   */
+  export type FreetrialUsersDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which FreetrialUsers to delete
+     */
+    where?: FreetrialUsersWhereInput
+    /**
+     * Limit how many FreetrialUsers to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * FreetrialUsers without action
+   */
+  export type FreetrialUsersDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the FreetrialUsers
+     */
+    select?: FreetrialUsersSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the FreetrialUsers
+     */
+    omit?: FreetrialUsersOmit<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -9933,6 +11045,19 @@ export namespace Prisma {
   };
 
   export type UserStatusScalarFieldEnum = (typeof UserStatusScalarFieldEnum)[keyof typeof UserStatusScalarFieldEnum]
+
+
+  export const FreetrialUsersScalarFieldEnum: {
+    id: 'id',
+    name: 'name',
+    email: 'email',
+    contactNumber: 'contactNumber',
+    occupation: 'occupation',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type FreetrialUsersScalarFieldEnum = (typeof FreetrialUsersScalarFieldEnum)[keyof typeof FreetrialUsersScalarFieldEnum]
 
 
   export const SortOrder: {
@@ -10752,6 +11877,68 @@ export namespace Prisma {
     secondMentorCallScheduledAt?: DateTimeNullableWithAggregatesFilter<"UserStatus"> | Date | string | null
     thirdMentorCallGoogleMeetLink?: StringNullableWithAggregatesFilter<"UserStatus"> | string | null
     thirdMentorCallScheduledAt?: DateTimeNullableWithAggregatesFilter<"UserStatus"> | Date | string | null
+  }
+
+  export type FreetrialUsersWhereInput = {
+    AND?: FreetrialUsersWhereInput | FreetrialUsersWhereInput[]
+    OR?: FreetrialUsersWhereInput[]
+    NOT?: FreetrialUsersWhereInput | FreetrialUsersWhereInput[]
+    id?: StringFilter<"FreetrialUsers"> | string
+    name?: StringFilter<"FreetrialUsers"> | string
+    email?: StringFilter<"FreetrialUsers"> | string
+    contactNumber?: StringFilter<"FreetrialUsers"> | string
+    occupation?: StringNullableFilter<"FreetrialUsers"> | string | null
+    createdAt?: DateTimeFilter<"FreetrialUsers"> | Date | string
+    updatedAt?: DateTimeFilter<"FreetrialUsers"> | Date | string
+  }
+
+  export type FreetrialUsersOrderByWithRelationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    email?: SortOrder
+    contactNumber?: SortOrder
+    occupation?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type FreetrialUsersWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    email?: string
+    AND?: FreetrialUsersWhereInput | FreetrialUsersWhereInput[]
+    OR?: FreetrialUsersWhereInput[]
+    NOT?: FreetrialUsersWhereInput | FreetrialUsersWhereInput[]
+    name?: StringFilter<"FreetrialUsers"> | string
+    contactNumber?: StringFilter<"FreetrialUsers"> | string
+    occupation?: StringNullableFilter<"FreetrialUsers"> | string | null
+    createdAt?: DateTimeFilter<"FreetrialUsers"> | Date | string
+    updatedAt?: DateTimeFilter<"FreetrialUsers"> | Date | string
+  }, "id" | "email">
+
+  export type FreetrialUsersOrderByWithAggregationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    email?: SortOrder
+    contactNumber?: SortOrder
+    occupation?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: FreetrialUsersCountOrderByAggregateInput
+    _max?: FreetrialUsersMaxOrderByAggregateInput
+    _min?: FreetrialUsersMinOrderByAggregateInput
+  }
+
+  export type FreetrialUsersScalarWhereWithAggregatesInput = {
+    AND?: FreetrialUsersScalarWhereWithAggregatesInput | FreetrialUsersScalarWhereWithAggregatesInput[]
+    OR?: FreetrialUsersScalarWhereWithAggregatesInput[]
+    NOT?: FreetrialUsersScalarWhereWithAggregatesInput | FreetrialUsersScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"FreetrialUsers"> | string
+    name?: StringWithAggregatesFilter<"FreetrialUsers"> | string
+    email?: StringWithAggregatesFilter<"FreetrialUsers"> | string
+    contactNumber?: StringWithAggregatesFilter<"FreetrialUsers"> | string
+    occupation?: StringNullableWithAggregatesFilter<"FreetrialUsers"> | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"FreetrialUsers"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"FreetrialUsers"> | Date | string
   }
 
   export type UserCreateInput = {
@@ -11574,6 +12761,76 @@ export namespace Prisma {
     thirdMentorCallScheduledAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   }
 
+  export type FreetrialUsersCreateInput = {
+    id?: string
+    name: string
+    email: string
+    contactNumber: string
+    occupation?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type FreetrialUsersUncheckedCreateInput = {
+    id?: string
+    name: string
+    email: string
+    contactNumber: string
+    occupation?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type FreetrialUsersUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    contactNumber?: StringFieldUpdateOperationsInput | string
+    occupation?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type FreetrialUsersUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    contactNumber?: StringFieldUpdateOperationsInput | string
+    occupation?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type FreetrialUsersCreateManyInput = {
+    id?: string
+    name: string
+    email: string
+    contactNumber: string
+    occupation?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type FreetrialUsersUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    contactNumber?: StringFieldUpdateOperationsInput | string
+    occupation?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type FreetrialUsersUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    contactNumber?: StringFieldUpdateOperationsInput | string
+    occupation?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -12196,6 +13453,36 @@ export namespace Prisma {
     secondMentorCallScheduledAt?: SortOrder
     thirdMentorCallGoogleMeetLink?: SortOrder
     thirdMentorCallScheduledAt?: SortOrder
+  }
+
+  export type FreetrialUsersCountOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    email?: SortOrder
+    contactNumber?: SortOrder
+    occupation?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type FreetrialUsersMaxOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    email?: SortOrder
+    contactNumber?: SortOrder
+    occupation?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type FreetrialUsersMinOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    email?: SortOrder
+    contactNumber?: SortOrder
+    occupation?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
   }
 
   export type ApiKeyCreateNestedManyWithoutUserInput = {
