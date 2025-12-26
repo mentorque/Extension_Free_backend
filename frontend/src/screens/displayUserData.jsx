@@ -224,9 +224,13 @@ const ResumeViewer = () => {
     const resume = data.formatted_resume || data;
     const skills = resume.skills || [];
     const skillsClassified = resume.skills_classified || {};
-    const importantSkills = skillsClassified.important_skills || skills || [];
-    const lessImportantSkills = skillsClassified.less_important_skills || [];
-    const nonTechnicalSkills = skillsClassified.non_technical_skills || [];
+    // Support both property name formats: important_skills (old) and important (new)
+    const importantSkills = skillsClassified.important || skillsClassified.important_skills || skills || [];
+    const lessImportantSkills = skillsClassified.less_important || skillsClassified.less_important_skills || [];
+    const nonTechnicalSkills = skillsClassified.non_technical || skillsClassified.non_technical_skills || [];
+    
+    // Calculate totals for display
+    const totalSkills = importantSkills.length + lessImportantSkills.length + nonTechnicalSkills.length;
 
     const renderValue = (value, indentLevel = 0) => {
       if (Array.isArray(value)) {
@@ -262,14 +266,19 @@ const ResumeViewer = () => {
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {/* Keywords Section - Compact Horizontal Layout */}
-        {skills.length > 0 && (
+        {/* Keywords Section - Show All Categories with Proper Ordering */}
+        {totalSkills > 0 && (
           <div style={{ marginBottom: '20px' }}>
+            {/* Summary Stats */}
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'space-between',
-              marginBottom: '12px'
+              marginBottom: '16px',
+              padding: '12px',
+              background: theme.name === 'dark' ? 'rgba(59, 130, 246, 0.1)' : '#f0f9ff',
+              borderRadius: '8px',
+              border: `1px solid ${theme.name === 'dark' ? 'rgba(59, 130, 246, 0.2)' : '#bae6fd'}`
             }}>
               <h4 style={{ 
                 fontSize: '14px', 
@@ -287,140 +296,161 @@ const ResumeViewer = () => {
                   borderRadius: '50%', 
                   display: 'inline-block' 
                 }} />
-                Keywords
+                Keywords Analysis
               </h4>
               <div style={{
+                display: 'flex',
+                gap: '12px',
                 fontSize: '11px',
-                color: theme.colors.textSecondary,
                 fontWeight: 500
               }}>
-                {importantSkills.length}
+                <span style={{ color: '#10b981' }}>✓ {importantSkills.length}</span>
+                <span style={{ color: '#f59e0b' }}>⚠ {lessImportantSkills.length}</span>
+                <span style={{ color: '#6b7280' }}>📋 {nonTechnicalSkills.length}</span>
+                <span style={{ color: theme.colors.textSecondary }}>Total: {totalSkills}</span>
               </div>
             </div>
             
-            {/* Keywords Grid - Compact Horizontal Layout */}
-            <div style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '8px',
-              marginBottom: '16px'
-            }}>
-              {importantSkills.map((skill, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    background: theme.name === 'dark' 
-                      ? 'rgba(96,213,236,0.1)' 
-                      : '#e0f7fc',
-                    border: `1px solid ${theme.name === 'dark' ? 'rgba(96,213,236,0.2)' : '#b3e5fc'}`,
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    color: theme.colors.textPrimary,
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.2s ease',
-                    cursor: 'default',
-                    lineHeight: '1.4'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                    e.currentTarget.style.boxShadow = theme.name === 'dark' 
-                      ? '0 2px 8px rgba(96,213,236,0.2)' 
-                      : '0 2px 8px rgba(96,213,236,0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  {skill}
-                </div>
-              ))}
-            </div>
-
-            {/* Less Important & Non-Technical Keywords (Collapsible) */}
-            {(lessImportantSkills.length > 0 || nonTechnicalSkills.length > 0) && (
-              <details style={{ marginTop: '12px' }}>
-                <summary style={{
-                  fontSize: '13px',
-                  color: theme.colors.textSecondary,
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  padding: '8px 0',
-                  userSelect: 'none'
+            {/* Important Skills - Most Prominent */}
+            {importantSkills.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ 
+                  fontSize: '13px', 
+                  fontWeight: 600, 
+                  color: '#10b981', 
+                  marginBottom: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
                 }}>
-                  {lessImportantSkills.length > 0 && `${lessImportantSkills.length} less important`}
-                  {lessImportantSkills.length > 0 && nonTechnicalSkills.length > 0 && ' • '}
-                  {nonTechnicalSkills.length > 0 && `${nonTechnicalSkills.length} non-technical`}
-                </summary>
-                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {lessImportantSkills.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>
-                        Less Important Keywords
-                      </div>
-                      <div style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '6px'
-                      }}>
-                        {lessImportantSkills.map((skill, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              padding: '5px 10px',
-                              borderRadius: '5px',
-                              background: theme.name === 'dark' 
-                                ? 'rgba(156,163,175,0.1)' 
-                                : '#f3f4f6',
-                              border: `1px solid ${theme.name === 'dark' ? 'rgba(156,163,175,0.2)' : '#e5e7eb'}`,
-                              fontSize: '11px',
-                              color: theme.colors.textSecondary,
-                              whiteSpace: 'nowrap',
-                              lineHeight: '1.4'
-                            }}
-                          >
-                            {skill}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {nonTechnicalSkills.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: '12px', color: theme.colors.textSecondary, marginBottom: '8px', fontWeight: 500 }}>
-                        Non-Technical Keywords
-                      </div>
-                      <div style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '6px'
-                      }}>
-                        {nonTechnicalSkills.map((skill, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              padding: '5px 10px',
-                              borderRadius: '5px',
-                              background: theme.name === 'dark' 
-                                ? 'rgba(156,163,175,0.05)' 
-                                : '#f9fafb',
-                              border: `1px solid ${theme.name === 'dark' ? 'rgba(156,163,175,0.1)' : '#e5e7eb'}`,
-                              fontSize: '11px',
-                              color: theme.colors.textSecondary,
-                              whiteSpace: 'nowrap',
-                              lineHeight: '1.4'
-                            }}
-                          >
-                            {skill}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <span>✅</span>
+                  <span>Important Keywords ({importantSkills.length})</span>
                 </div>
-              </details>
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '8px'
+                }}>
+                  {importantSkills.map((skill, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: theme.name === 'dark' 
+                          ? 'rgba(16,185,129,0.15)' 
+                          : '#d1fae5',
+                        border: `1px solid ${theme.name === 'dark' ? 'rgba(16,185,129,0.3)' : '#6ee7b7'}`,
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        color: theme.name === 'dark' ? '#6ee7b7' : '#065f46',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.2s ease',
+                        cursor: 'default',
+                        lineHeight: '1.4'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.boxShadow = theme.name === 'dark' 
+                          ? '0 2px 8px rgba(16,185,129,0.3)' 
+                          : '0 2px 8px rgba(16,185,129,0.2)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                    >
+                      {skill}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Less Important Skills */}
+            {lessImportantSkills.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ 
+                  fontSize: '13px', 
+                  fontWeight: 600, 
+                  color: '#f59e0b', 
+                  marginBottom: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <span>⚠️</span>
+                  <span>Less Important Keywords ({lessImportantSkills.length})</span>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '6px'
+                }}>
+                  {lessImportantSkills.map((skill, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: '5px',
+                        background: theme.name === 'dark' 
+                          ? 'rgba(245,158,11,0.1)' 
+                          : '#fef3c7',
+                        border: `1px solid ${theme.name === 'dark' ? 'rgba(245,158,11,0.2)' : '#fcd34d'}`,
+                        fontSize: '11px',
+                        color: theme.name === 'dark' ? '#fbbf24' : '#92400e',
+                        whiteSpace: 'nowrap',
+                        lineHeight: '1.4'
+                      }}
+                    >
+                      {skill}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Non-Technical Skills */}
+            {nonTechnicalSkills.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ 
+                  fontSize: '13px', 
+                  fontWeight: 600, 
+                  color: '#6b7280', 
+                  marginBottom: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <span>📋</span>
+                  <span>Non-Technical Keywords ({nonTechnicalSkills.length})</span>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '6px'
+                }}>
+                  {nonTechnicalSkills.map((skill, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: '5px',
+                        background: theme.name === 'dark' 
+                          ? 'rgba(107,114,128,0.1)' 
+                          : '#f3f4f6',
+                        border: `1px solid ${theme.name === 'dark' ? 'rgba(107,114,128,0.2)' : '#d1d5db'}`,
+                        fontSize: '11px',
+                        color: theme.name === 'dark' ? '#9ca3af' : '#4b5563',
+                        whiteSpace: 'nowrap',
+                        lineHeight: '1.4'
+                      }}
+                    >
+                      {skill}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}

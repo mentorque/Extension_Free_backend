@@ -210,14 +210,31 @@ const GenerateKeywordsScreen = () => {
     return skills.filter(skill => !isBlacklisted(skill));
   };
 
+  // Helper function to shuffle an array (Fisher-Yates algorithm)
+  const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
   // Use bifurcated structure if available, otherwise fall back to old structure
   const isBifurcated = keywordsData?.result?.bifurcated === true;
   
-  // Get skills from response
+  // Get skills from response - Support all three categories
   let importantPresentSkills = keywordsData?.result?.important_present_skills || [];
   let importantMissingSkills = keywordsData?.result?.important_missing_skills || [];
+  
+  // Randomize the display order while keeping matching first and missing last
+  // This ensures all keywords are shown but in a randomized order within each group
+  importantPresentSkills = shuffleArray(importantPresentSkills);
+  importantMissingSkills = shuffleArray(importantMissingSkills);
   const lessImportantPresentSkills = keywordsData?.result?.less_important_present_skills || [];
   const lessImportantMissingSkills = keywordsData?.result?.less_important_missing_skills || [];
+  const nonTechnicalPresentSkills = keywordsData?.result?.non_technical_present_skills || [];
+  const nonTechnicalMissingSkills = keywordsData?.result?.non_technical_missing_skills || [];
   
   // Apply frontend blacklist filter to important skills
   importantPresentSkills = filterBlacklisted(importantPresentSkills);
@@ -234,12 +251,18 @@ const GenerateKeywordsScreen = () => {
   }
   
   // Fallback to old structure if not bifurcated
-  const presentSkills = isBifurcated 
+  let presentSkills = isBifurcated 
     ? [...importantPresentSkills, ...lessImportantPresentSkills]
     : filterBlacklisted(keywordsData?.result?.present_skills || []);
-  const missingSkills = isBifurcated
+  let missingSkills = isBifurcated
     ? [...importantMissingSkills, ...lessImportantMissingSkills]
     : filterBlacklisted(keywordsData?.result?.missing_skills || []);
+  
+  // Randomize the display order for non-bifurcated mode as well
+  if (!isBifurcated) {
+    presentSkills = shuffleArray(presentSkills);
+    missingSkills = shuffleArray(missingSkills);
+  }
 
   const presentCount = presentSkills.length;
   const totalImportantKeywords = presentSkills.length + missingSkills.length;
@@ -867,6 +890,119 @@ const GenerateKeywordsScreen = () => {
                           overflow: 'auto',
                           textOverflow: 'clip',
                           scrollbarWidth: 'thin',
+                        }}>
+                          {skill}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Non-Technical Keywords Section */}
+              {isBifurcated && (nonTechnicalPresentSkills.length > 0 || nonTechnicalMissingSkills.length > 0) && (
+                <div style={{...lastCardStyle, paddingTop: '8px', marginTop: '12px'}}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <h3 style={{ 
+                        fontSize: '14px', 
+                        fontWeight: '600', 
+                        color: theme.colors.textSecondary,
+                        margin: 0,
+                        lineHeight: '1.3'
+                      }}>
+                        Non-Technical Keywords
+                      </h3>
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '50%',
+                        backgroundColor: theme.name === 'dark' ? '#6b7280' : '#9ca3af',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '10px',
+                        color: 'white',
+                        fontWeight: '700',
+                        cursor: 'help',
+                        title: 'Non-technical skills and keywords from the job description',
+                        flexShrink: 0
+                      }}>
+                        ?
+                      </div>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '3px 8px',
+                      borderRadius: '10px',
+                      backgroundColor: theme.name === 'dark' ? 'rgba(107,114,128,0.2)' : 'rgba(107,114,128,0.15)',
+                      border: 'none'
+                    }}>
+                      <svg width="12" height="12" viewBox="0 0 20 20" fill="#6b7280">
+                        <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                      </svg>
+                      <span style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280' }}>
+                        {nonTechnicalPresentSkills.length}/{nonTechnicalPresentSkills.length + nonTechnicalMissingSkills.length}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Non-Technical Keywords in 2-column layout */}
+                  <div style={skillsGridStyle}>
+                    {/* Non-Technical Present Skills */}
+                    {nonTechnicalPresentSkills.map((skill, index) => (
+                      <div key={`non-technical-present-${index}`} style={{
+                        ...matchingSkillStyle,
+                        backgroundColor: theme.name === 'dark' ? 'rgba(107,114,128,0.1)' : '#f3f4f6',
+                        borderColor: theme.name === 'dark' ? 'rgba(107,114,128,0.2)' : '#d1d5db'
+                      }}>
+                        <div style={{
+                          ...matchingCheckIconStyle,
+                          backgroundColor: '#6b7280'
+                        }}>
+                          <svg width="10" height="10" viewBox="0 0 20 20" fill="white">
+                            <path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/>
+                          </svg>
+                        </div>
+                        <span style={{ 
+                          flex: 1, 
+                          minWidth: 0,
+                          whiteSpace: 'nowrap',
+                          overflow: 'auto',
+                          textOverflow: 'clip',
+                          scrollbarWidth: 'thin',
+                          color: theme.colors.textSecondary
+                        }}>
+                          {skill}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* Non-Technical Missing Skills */}
+                    {nonTechnicalMissingSkills.map((skill, index) => (
+                      <div key={`non-technical-missing-${index}`} style={{
+                        ...missingSkillStyle,
+                        backgroundColor: theme.name === 'dark' ? 'rgba(107,114,128,0.05)' : '#f9fafb',
+                        borderColor: theme.name === 'dark' ? 'rgba(107,114,128,0.1)' : '#e5e7eb'
+                      }}>
+                        <div style={{
+                          ...missingCheckIconStyle,
+                          backgroundColor: '#9ca3af'
+                        }}>
+                          <svg width="12" height="12" viewBox="0 0 20 20" fill="white">
+                            <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+                          </svg>
+                        </div>
+                        <span style={{ 
+                          flex: 1,
+                          minWidth: 0,
+                          whiteSpace: 'nowrap',
+                          overflow: 'auto',
+                          textOverflow: 'clip',
+                          scrollbarWidth: 'thin',
+                          color: theme.colors.textSecondary
                         }}>
                           {skill}
                         </span>

@@ -2425,6 +2425,48 @@ def extract_skills_with_phrasematcher(
             matched_skills_data[matched_lower]['frequency'] += 1
             matched_skills_data[matched_lower]['spans'].append(span)
     
+        # PERFORMANCE FIX: Batch classify all unique skills at once instead of one-by-one
+        # This is MUCH faster - processes hundreds of skills at once instead of individually
+        technical_skills_set = set()
+        technical_skills_lower_set = set()  # Lowercase set for fast case-insensitive lookup
+        custom_keywords_set = set()
+        
+        if skills_db.classifier.available and matched_skills_data:
+            # Collect all unique skills that need classification (excluding custom keywords)
+            skills_to_classify = []
+            skill_to_data_map = {}  # Map skill text to its data for later lookup
+            
+            for matched_lower, skill_data in matched_skills_data.items():
+                matched_text = skill_data['text']
+                
+                # Check if this is a custom keyword (bypasses classification filter)
+                is_custom = (skills_db.is_custom_keyword(matched_text) or 
+                            skills_db.is_custom_keyword(matched_lower) or
+                            skills_db.is_custom_keyword(matched_text.title()))
+                
+                if not is_custom:
+                    # Check normalized form directly
+                    normalized = skills_db._normalize(matched_lower)
+                    is_custom = normalized in skills_db.custom_keywords_normalized
+                
+                if is_custom:
+                    custom_keywords_set.add(matched_text)
+                    custom_keywords_set.add(matched_lower)
+                else:
+                    # Add to batch classification list
+                    skills_to_classify.append(matched_text)
+                    skill_to_data_map[matched_text] = skill_data
+            
+            # Batch classify all skills at once (MUCH faster than one-by-one)
+            if skills_to_classify:
+                logger.info(f"Batch classifying {len(skills_to_classify)} unique skills...")
+                technical_skills_set = skills_db.classifier.batch_classify_skills(skills_to_classify, threshold=0.10)
+                # Create lowercase set for fast case-insensitive lookup
+                technical_skills_lower_set = {s.lower() for s in technical_skills_set}
+                logger.info(f"✅ Batch classification complete: {len(technical_skills_set)} technical, {len(skills_to_classify) - len(technical_skills_set)} non-technical")
+            else:
+                technical_skills_lower_set = set()
+        
         # Second pass: Process each unique skill with frequency information
         for matched_lower, skill_data in matched_skills_data.items():
             matched_text = skill_data['text']
@@ -2436,8 +2478,9 @@ def extract_skills_with_phrasematcher(
             # This is the main filter - uses ML to determine if term is technical
             # Only falls back to rule-based filters if classifier unavailable
             # Check if this is a custom keyword (bypasses classification filter)
-            # IMPORTANT: Check both the matched text and its normalized form
-            is_custom = (skills_db.is_custom_keyword(matched_text) or 
+            is_custom = (matched_text in custom_keywords_set or 
+                        matched_lower in custom_keywords_set or
+                        skills_db.is_custom_keyword(matched_text) or 
                         skills_db.is_custom_keyword(matched_lower) or
                         skills_db.is_custom_keyword(matched_text.title()))
             
@@ -2454,11 +2497,13 @@ def extract_skills_with_phrasematcher(
             if is_custom:
                 logger.info(f"🔑 [CUSTOM KEYWORD] '{matched_text}' - bypassing all filters")
                 safe_stderr_print(f"[CUSTOM KEYWORD] ✅ '{matched_text}' detected - bypassing filters", flush=True)
-            is_technical = True  # Default to True if classifier unavailable
             
+            # Check if technical using batch classification results
             if skills_db.classifier.available:
-                # Removed verbose per-skill logging during extraction
-                is_technical = skills_db.classifier.is_technical_skill(matched_text, threshold=0.10)  # Lowered threshold from 0.15 to 0.10
+                # Use batch classification results (much faster than individual calls)
+                # Check both original case and lowercase for fast O(1) lookup
+                is_technical = (matched_text in technical_skills_set or 
+                                matched_lower in technical_skills_lower_set)
                 
                 if is_custom:
                     # Custom keyword: always include, but still classify for categorization

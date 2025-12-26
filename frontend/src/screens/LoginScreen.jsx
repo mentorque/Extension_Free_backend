@@ -220,7 +220,7 @@ const LoginScreen = ({ onClose }) => {
               <p style={styles.footerText}>
                 Don't have an API key?{' '}
                 <a 
-                  href={`${config.websiteUrl}/api-keys`} 
+                  href={`${config.websiteUrl}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   style={styles.link}
