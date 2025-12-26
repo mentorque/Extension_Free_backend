@@ -3,11 +3,9 @@ const express = require('express');
 const router = express.Router();
 
 // Import middleware
-const { authenticateApiKey } = require('./middleware/auth');
 const { handleFileUpload } = require('./middleware/fileUpload'); // FIXED: handleFileUpload instead of uploadMiddleware
 
 // Import controllers
-const authController = require('./controllers/auth');
 const chatController = require('./controllers/chat');
 const coverletterController = require('./controllers/coverletter');
 const experienceController = require('./controllers/experience');

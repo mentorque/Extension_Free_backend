@@ -175,18 +175,6 @@ app.use((req, res, next) => {
 // Routes - All routes are mounted at /api
 app.use('/api', routes);
 
-// Temporary handler for /auth/validate (forwards to /api/auth/validate)
-// This is a workaround if frontend is calling wrong URL
-// TODO: Remove this once frontend is updated to use /api/auth/validate
-const authController = require('./src/controllers/auth');
-app.post('/auth/validate', (req, res, next) => {
-  console.log('[WARNING] Request to /auth/validate detected - should be /api/auth/validate');
-  console.log('[WARNING] Full URL:', req.protocol + '://' + req.get('host') + req.originalUrl);
-  console.log('[WARNING] Forwarding to auth controller...');
-  // Forward to the actual auth controller
-  authController.validateApiKeyPublic(req, res, next);
-});
-
 // Catch-all for unmatched routes (for debugging)
 app.use((req, res, next) => {
   console.log(`[UNMATCHED_ROUTE] ${req.method} ${req.originalUrl} - Path: ${req.path}`);
