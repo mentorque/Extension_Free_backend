@@ -1,9 +1,12 @@
 // frontend/src/screens/GenerateKeywordsScreen.jsx
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useResume } from '../context/userContext';
 import { useJobData } from '../context/jobContext';
+import { useRequest } from '../context/requestContext';
 import useApi from '../hooks/useApi';
 import JobDataWrapper from '../components/JobDataWrapper';
+import UserInfoForm from '../components/UserInfoForm';
+import AdScreen from '../components/AdScreen';
 import { GENERATE_KEYWORDS_URL } from '../constants/index.js';
 import { useTheme } from '../context/themeContext.jsx';
 
@@ -11,23 +14,55 @@ const GenerateKeywordsScreen = () => {
   const { resumeData } = useResume();
   const { jobData, keywordsData, setKeywordsData } = useJobData();
   const { theme } = useTheme();
+  const { incrementKeywordRequest, shouldShowForm, shouldShowAd, isFormSubmitted, markFormSubmitted } = useRequest();
   const previousJobIdRef = useRef(null);
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [showAd, setShowAd] = useState(false);
 
   const { isLoading, error, postData } = useApi(GENERATE_KEYWORDS_URL);
 
   const handleSave = async () => {
+    // Check if form should be shown (after 2 requests)
+    if (shouldShowForm() && !isFormSubmitted) {
+      setShowUserForm(true);
+      return; // Block request until form is submitted
+    }
+
+    // Check if form is submitted - if not, don't allow requests
+    if (!isFormSubmitted) {
+      // Allow first 2 requests without form
+      const currentCount = parseInt(localStorage.getItem('keywordRequestCount') || '0', 10);
+      if (currentCount >= 2) {
+        // After 2 requests, form is required
+        setShowUserForm(true);
+        return;
+      }
+    }
+
     // Force fresh data - clear any cached keywordsData first
     setKeywordsData(null);
 
-  const body = {
-    jobDescription: jobData?.description || '',
-    skills: resumeData?.result?.formatted_resume?.skills || []
-  };
+    const body = {
+      jobDescription: jobData?.description || '',
+      skills: resumeData?.result?.formatted_resume?.skills || []
+    };
     
     const result = await postData(body);
     if (result) {
       console.log('[Keywords UI] Setting new keywordsData:', result);
       setKeywordsData(result);
+      
+      // Increment request count AFTER successful request
+      const newCount = incrementKeywordRequest();
+      
+      // Check if we should show ad (after every 10 requests)
+      // Use setTimeout to show ad after a brief delay so user sees the results first
+      setTimeout(() => {
+        const currentCount = parseInt(localStorage.getItem('keywordRequestCount') || '0', 10);
+        if (currentCount > 0 && currentCount % 10 === 0) {
+          setShowAd(true);
+        }
+      }, 1000);
     }
   };
 
@@ -210,27 +245,12 @@ const GenerateKeywordsScreen = () => {
     return skills.filter(skill => !isBlacklisted(skill));
   };
 
-  // Helper function to shuffle an array (Fisher-Yates algorithm)
-  const shuffleArray = (array) => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
-
   // Use bifurcated structure if available, otherwise fall back to old structure
   const isBifurcated = keywordsData?.result?.bifurcated === true;
   
   // Get skills from response - Support all three categories
   let importantPresentSkills = keywordsData?.result?.important_present_skills || [];
   let importantMissingSkills = keywordsData?.result?.important_missing_skills || [];
-  
-  // Randomize the display order while keeping matching first and missing last
-  // This ensures all keywords are shown but in a randomized order within each group
-  importantPresentSkills = shuffleArray(importantPresentSkills);
-  importantMissingSkills = shuffleArray(importantMissingSkills);
   const lessImportantPresentSkills = keywordsData?.result?.less_important_present_skills || [];
   const lessImportantMissingSkills = keywordsData?.result?.less_important_missing_skills || [];
   const nonTechnicalPresentSkills = keywordsData?.result?.non_technical_present_skills || [];
@@ -251,18 +271,12 @@ const GenerateKeywordsScreen = () => {
   }
   
   // Fallback to old structure if not bifurcated
-  let presentSkills = isBifurcated 
+  const presentSkills = isBifurcated 
     ? [...importantPresentSkills, ...lessImportantPresentSkills]
     : filterBlacklisted(keywordsData?.result?.present_skills || []);
-  let missingSkills = isBifurcated
+  const missingSkills = isBifurcated
     ? [...importantMissingSkills, ...lessImportantMissingSkills]
     : filterBlacklisted(keywordsData?.result?.missing_skills || []);
-  
-  // Randomize the display order for non-bifurcated mode as well
-  if (!isBifurcated) {
-    presentSkills = shuffleArray(presentSkills);
-    missingSkills = shuffleArray(missingSkills);
-  }
 
   const presentCount = presentSkills.length;
   const totalImportantKeywords = presentSkills.length + missingSkills.length;
@@ -322,10 +336,31 @@ const GenerateKeywordsScreen = () => {
   `;
 
   return (
-    <JobDataWrapper>
-      <style>{bounceAnimation}{scrollbarStyles}{spinAnimation}</style>
+    <>
+      {showUserForm && (
+        <UserInfoForm
+          required={shouldShowForm()}
+          onClose={() => {
+            if (shouldShowForm()) {
+              return; // Don't allow closing if form is required
+            }
+            setShowUserForm(false);
+          }}
+          onSuccess={(userData) => {
+            markFormSubmitted();
+            setShowUserForm(false);
+          }}
+        />
+      )}
       
-      <div style={containerStyle}>
+      {showAd && (
+        <AdScreen onClose={() => setShowAd(false)} />
+      )}
+
+      <JobDataWrapper>
+        <style>{bounceAnimation}{scrollbarStyles}{spinAnimation}</style>
+        
+        <div style={containerStyle}>
         <div style={contentStyle}>
           
           {/* Skeleton Loading State - Matches exact content structure */}
@@ -1016,6 +1051,7 @@ const GenerateKeywordsScreen = () => {
         </div>
       </div>
     </JobDataWrapper>
+    </>
   );
 };
 

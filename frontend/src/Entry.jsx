@@ -1,8 +1,8 @@
 // src/Entry.jsx
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Overlay from "./components/Overlay.jsx";
-import LoginScreen from "./screens/LoginScreen.jsx";
-import { useAuth } from "./context/authContext.jsx";
+import UserInfoForm from "./components/UserInfoForm.jsx";
+import { useRequest } from "./context/requestContext.jsx";
 
 const getButtonPosition = () => {
   if (typeof window !== 'undefined' && window.localStorage) {
@@ -28,16 +28,24 @@ const saveButtonPosition = (position) => {
 };
 
 export default function Entry() {
-  const { apiKey, isAuthenticated, isLoading } = useAuth();
+  const { shouldShowForm, markFormSubmitted, isFormSubmitted } = useRequest();
   const [isHidden, setIsHidden] = useState(true);
   const [activeScreen, setActiveScreen] = useState("keywords");
   const [isResumeModalOpen, setResumeModalOpen] = useState(false);
+  const [showUserForm, setShowUserForm] = useState(false);
   const buttonRef = useRef(null);
   const hasMovedRef = useRef(false);
   const [buttonPosition, setButtonPosition] = useState({ top: "50%", right: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+
+  // Check if form should be shown
+  useEffect(() => {
+    if (shouldShowForm() && !showUserForm) {
+      setShowUserForm(true);
+    }
+  }, [shouldShowForm, showUserForm]);
 
   // Load saved position
   useEffect(() => {
@@ -238,36 +246,45 @@ export default function Entry() {
     );
   }
 
-  // Show loading state
-  if (isLoading) {
+  // Show user form if needed
+  if (showUserForm && !isFormSubmitted) {
     return (
-      <div
-        style={{
-          position: "fixed",
-          top: "20px",
-          left: "20px",
-          zIndex: 999999,
-          background: "white",
-          padding: "12px 20px",
-          borderRadius: "12px",
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-          fontFamily: "system-ui, -apple-system, sans-serif",
-        }}
-      >
-        Loading...
-      </div>
+      <>
+        <UserInfoForm
+          required={shouldShowForm()}
+          onClose={() => {
+            // Don't allow closing if form is required
+            if (shouldShowForm()) {
+              return;
+            }
+            setShowUserForm(false);
+          }}
+          onSuccess={(userData) => {
+            markFormSubmitted();
+            setShowUserForm(false);
+          }}
+        />
+        {/* Show overlay in background but disabled */}
+        <div style={{ opacity: 0.3, pointerEvents: 'none' }}>
+          <Overlay
+            userData={{}}
+            onLogout={() => {}}
+            isHidden={isHidden}
+            setIsHidden={setIsHidden}
+            activeScreen={activeScreen}
+            setActiveScreen={setActiveScreen}
+            isResumeModalOpen={isResumeModalOpen}
+            setResumeModalOpen={setResumeModalOpen}
+          />
+        </div>
+      </>
     );
   }
 
-  // Show login screen if not authenticated
-  if (!isAuthenticated) {
-    return <LoginScreen onClose={() => setIsHidden(true)} />;
-  }
-
-  // Show main overlay when authenticated
+  // Show main overlay
   return (
     <Overlay
-      userData={{ apiKey }}
+      userData={{}}
       onLogout={() => {}}
       isHidden={isHidden}
       setIsHidden={setIsHidden}

@@ -3,8 +3,8 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 const LIGHT_THEME = {
   name: 'light',
   colors: {
-    primary: '#3b82f6',
-    primaryHover: '#2563eb',
+    primary: '#f97316', // Orange from landing page
+    primaryHover: '#ea580c',
     background: '#ffffff',
     secondaryBackground: '#f8fafc',
     border: '#e2e8f0',
@@ -19,8 +19,8 @@ const LIGHT_THEME = {
 const DARK_THEME = {
   name: 'dark',
   colors: {
-    primary: '#60a5fa',
-    primaryHover: '#3b82f6',
+    primary: '#f97316', // Orange from landing page
+    primaryHover: '#ea580c',
     background: '#0b1220',
     secondaryBackground: '#111827',
     border: '#1f2a44',

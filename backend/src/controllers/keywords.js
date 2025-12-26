@@ -1433,11 +1433,37 @@ const generateKeywords = async (req, res, next) => {
       return a.skill.localeCompare(b.skill);
     });
     
+    // Helper function to shuffle array (Fisher-Yates algorithm)
+    const shuffleArray = (array) => {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    // Helper function for subtle randomization (only swaps a few random pairs)
+    const subtleShuffle = (array) => {
+      if (array.length <= 1) return array;
+      const shuffled = [...array];
+      // Only do a few random swaps (about 20-30% of array length, but at least 2-3 swaps)
+      const numSwaps = Math.max(2, Math.min(Math.floor(array.length * 0.25), 10));
+      for (let i = 0; i < numSwaps; i++) {
+        const idx1 = Math.floor(Math.random() * shuffled.length);
+        const idx2 = Math.floor(Math.random() * shuffled.length);
+        if (idx1 !== idx2) {
+          [shuffled[idx1], shuffled[idx2]] = [shuffled[idx2], shuffled[idx1]];
+        }
+      }
+      return shuffled;
+    };
+
     // Split present skills into important (weight >= 2) and less important (weight < 2)
-    const importantPresentSkills = presentSkillsWithScores
+    let importantPresentSkills = presentSkillsWithScores
       .filter(item => (item.weight || 1) >= 2)
       .map(item => item.skill);
-    const lessImportantPresentSkills = presentSkillsWithScores
+    let lessImportantPresentSkills = presentSkillsWithScores
       .filter(item => (item.weight || 1) < 2)
       .map(item => item.skill);
     
@@ -1467,12 +1493,18 @@ const generateKeywords = async (req, res, next) => {
       });
     
     // Split missing skills into important (weight >= 2) and less important (weight < 2)
-    const importantMissingSkills = missingSkills
+    let importantMissingSkills = missingSkills
       .filter(kw => (kw.weight || 1) >= 2)
       .map(kw => titleize(kw.original));
-    const lessImportantMissingSkills = missingSkills
+    let lessImportantMissingSkills = missingSkills
       .filter(kw => (kw.weight || 1) < 2)
       .map(kw => titleize(kw.original));
+    
+    // Randomize the skills: subtle shuffle for matching, full shuffle for missing
+    importantPresentSkills = subtleShuffle(importantPresentSkills);
+    importantMissingSkills = shuffleArray(importantMissingSkills);
+    lessImportantPresentSkills = subtleShuffle(lessImportantPresentSkills);
+    lessImportantMissingSkills = shuffleArray(lessImportantMissingSkills);
     
     const allSkills = missingSkills.map(kw => titleize(kw.original));
     const missingWeight = missingSkills.reduce((sum, kw) => sum + (kw.weight || 1), 0);

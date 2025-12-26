@@ -15,6 +15,7 @@ const hrLookupController = require('./controllers/hrLookup');
 const keywordsController = require('./controllers/keywords');
 const uploadResumeController = require('./controllers/uploadResume');
 const appliedJobsController = require('./controllers/appliedJobs');
+const freetrialUsersController = require('./controllers/freetrialUsers');
 
 // Public routes (no auth required)
 // Health check
@@ -22,11 +23,11 @@ router.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// Public API key validation endpoint (no auth required)
-router.post('/auth/validate', authController.validateApiKeyPublic);
+// Free trial user registration
+router.post('/freetrial/register', freetrialUsersController.registerFreeTrialUser);
 
-// Protected routes (require API key)
-router.use(authenticateApiKey); // Apply auth middleware to all routes below
+// All routes are now public (no auth required)
+// Removed: router.use(authenticateApiKey);
 
 // Chat routes
 router.post('/chat', chatController.chatWithContext);

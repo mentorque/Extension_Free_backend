@@ -3,7 +3,6 @@
 
 import { useRef, useState, useEffect } from "react";
 import { X, Sun, Moon, FileText, Sparkles, Briefcase, FileEdit, Users, MessageSquare, User, UserCircle, ClipboardList, LayoutDashboard, Lock } from "lucide-react";
-import { useAuth } from "../context/authContext.jsx";
 import { useJobData } from "../context/jobContext.jsx";
 import ResumeModal from "./ResumeModal";
 import useDraggable from "../hooks/useDraggable.jsx";
@@ -63,7 +62,7 @@ export default function Overlay({
   const dropdownRef = useRef(null);
   const { position, isDragging, handleMouseDown } = useDraggable(overlayRef);
   const { theme, toggleTheme } = useTheme();
-  const { logout, user, apiKey } = useAuth();
+  // Removed auth - no longer needed
   const { jobData, appliedJobs, setAppliedJobs } = useJobData();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
@@ -531,7 +530,7 @@ export default function Overlay({
                       fontWeight: "600",
                       color: theme.colors.white
                     }}>
-                      {user?.name ? user.name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || '?'}
+                      ?
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
@@ -540,7 +539,7 @@ export default function Overlay({
                         color: theme.colors.textPrimary,
                         marginBottom: "2px"
                       }}>
-                        {user?.name || 'User'}
+                        Free Trial User
                       </div>
                       <div style={{
                         fontSize: "12px",
@@ -549,7 +548,7 @@ export default function Overlay({
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap"
                       }}>
-                        {user?.email || 'No email'}
+                        Extension User
                       </div>
                     </div>
                   </div>
@@ -584,34 +583,6 @@ export default function Overlay({
                   )}
                 </div>
               )}
-
-              <button
-                style={{
-                  ...iconButtonStyle,
-                  width: 'auto',
-                  padding: '0 10px',
-                  border: `1px solid ${theme.colors.border}`
-                }}
-                onClick={async () => {
-                  try {
-                    await logout();
-                    setIsHidden(true);
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }}
-                title="Logout"
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = theme.colors.secondaryBackground;
-                  e.currentTarget.style.color = theme.colors.textPrimary;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = theme.colors.textSecondary;
-                }}
-              >
-                Logout
-              </button>
               <button
                 style={iconButtonStyle}
                 onClick={() => setIsHidden(true)}

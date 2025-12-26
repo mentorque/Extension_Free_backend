@@ -1,5 +1,5 @@
 import { useTheme } from '../context/themeContext.jsx';
-import { Lock, Briefcase, FileEdit, MessageSquare, User, ClipboardList } from 'lucide-react';
+import { Lock, Briefcase, FileEdit, MessageSquare, User, ClipboardList, ExternalLink } from 'lucide-react';
 
 const lockedFeatures = [
   { icon: Briefcase, label: 'Experience' },
@@ -111,8 +111,51 @@ const LockedScreen = ({ featureName }) => {
     fontWeight: '500',
   };
 
+  const knowMoreButtonStyle = {
+    marginTop: '20px',
+    padding: '12px 24px',
+    fontSize: '14px',
+    fontWeight: '600',
+    color: 'white',
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    border: 'none',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+    transition: 'all 0.3s ease',
+    position: 'relative',
+    overflow: 'hidden',
+    letterSpacing: '0.02em',
+  };
+
+  const handleKnowMoreClick = () => {
+    window.open('https://www.mentorquedu.com/#About', '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div style={containerStyle}>
+      <style>{`
+        @keyframes shimmer {
+          0% {
+            background-position: -1000px 0;
+          }
+          100% {
+            background-position: 1000px 0;
+          }
+        }
+        @keyframes pulse {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.05);
+          }
+        }
+      `}</style>
       <div style={contentStyle}>
         <div style={headerStyle}>
           <div style={lockIconStyle}>
@@ -154,6 +197,30 @@ const LockedScreen = ({ featureName }) => {
             })}
           </div>
           <p style={unlockTextStyle}>Upgrade to unlock</p>
+          
+          <button
+            onClick={handleKnowMoreClick}
+            style={knowMoreButtonStyle}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.5)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, #764ba2 0%, #667eea 100%)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = 'translateY(0) scale(0.98)';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)';
+            }}
+          >
+            <span>Know More</span>
+            <ExternalLink size={16} strokeWidth={2.5} />
+          </button>
         </div>
       </div>
     </div>

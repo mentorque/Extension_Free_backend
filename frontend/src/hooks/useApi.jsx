@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { useAuth } from '../context/authContext';
 import { apiClient } from '../utils/apiClient';
 
 // Backward + forward compatible API hook
@@ -8,7 +7,6 @@ import { apiClient } from '../utils/apiClient';
 const useApi = (baseUrl) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { apiKey } = useAuth();
 
   const makeRequest = async (endpoint, options = {}) => {
     setLoading(true);
@@ -21,7 +19,6 @@ const useApi = (baseUrl) => {
       const response = await apiClient.request(endpoint, {
         ...options,
         headers: {
-          ...(apiKey ? { 'x-api-key': apiKey } : {}),
           ...options.headers
         }
       });
@@ -80,7 +77,6 @@ const useApi = (baseUrl) => {
       const response = await apiClient.post(url, body, {
         ...options,
         headers: {
-          ...(apiKey ? { 'x-api-key': apiKey } : {}),
           ...options.headers
         }
       });

@@ -1,23 +1,24 @@
 // src/Main.jsx
 import React, { useEffect, useState } from 'react';
 import Entry from './Entry.jsx';
+import GlobalStyles from './components/GlobalStyles';
 import { JobDataProvider } from './context/jobContext.jsx';
 import { ResumeProvider } from './context/userContext.jsx';
 import { ThemeProvider } from './context/themeContext.jsx';
-import { AuthProvider, useAuth } from './context/authContext.jsx';
+import { RequestProvider } from './context/requestContext.jsx';
 import { useJobData } from './context/jobContext.jsx';
 import { apiClient } from './utils/apiClient.js';
 
 const AppProviders = ({ children }) => {
   return (
     <ThemeProvider>
-      <AuthProvider> {/* Wrap with AuthProvider */}
+      <RequestProvider>
         <ResumeProvider>
           <JobDataProvider>
             {children}
           </JobDataProvider>
         </ResumeProvider>
-      </AuthProvider>
+      </RequestProvider>
     </ThemeProvider>
   );
 };
@@ -29,6 +30,7 @@ const Main = () => {
 
   return (
     <AppProviders>
+      <GlobalStyles />
       <JobDataListener>
         <Entry 
           activeScreen={activeScreen}
@@ -80,7 +82,6 @@ const testApiConnectivity = async (apiBaseUrl) => {
 // Listens for content script job events and stores into context
 const JobDataListener = ({ children }) => {
   const { setJobData, setAppliedJobs } = useJobData();
-  const { apiKey } = useAuth();
 
   useEffect(() => {
     const handler = (e) => {
