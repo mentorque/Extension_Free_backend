@@ -59,11 +59,10 @@ function loadSkillsDatabase() {
     
     // Check if text file exists (for 17k skills)
     if (fs.existsSync(textFilePath)) {
-      console.log(`[Keywords] 📂 Loading skills from text file: ${textFilePath}`);
       const fileContent = fs.readFileSync(textFilePath, 'utf8');
       const lines = fileContent.split('\n');
       
-      // Parse each line (one skill per line)
+      // Parse each line (one skill per line) - optimized loop
       for (const line of lines) {
         const trimmed = line.trim();
         if (trimmed && !trimmed.startsWith('#')) { // Skip empty lines and comments
@@ -75,11 +74,8 @@ function loadSkillsDatabase() {
           });
         }
       }
-      
-      console.log(`[Keywords] ✅ Loaded ${allSkills.length} skills from skills.txt`);
     } else if (fs.existsSync(jsonFilePath)) {
       // Fallback to JSON format
-      console.log(`[Keywords] 📂 Loading skills from JSON file: ${jsonFilePath}`);
       const skillsData = JSON.parse(fs.readFileSync(jsonFilePath, 'utf8'));
       
       // Flatten all skills into a single array with categories
@@ -92,8 +88,6 @@ function loadSkillsDatabase() {
           });
         }
       }
-      
-      console.log(`[Keywords] ✅ Loaded ${allSkills.length} skills from JSON (${Object.keys(skillsData).length} categories)`);
     } else {
       throw new Error(`Neither skills.txt nor skillsDatabase.json found`);
     }
@@ -129,15 +123,14 @@ function loadSkillsDatabase() {
     }
     
     const loadDuration = Date.now() - loadStartTime;
-    console.log(`[Keywords] ✅ Skills database loaded in ${loadDuration}ms`);
-    console.log(`[Keywords]   - Total skills: ${allSkills.length}`);
-    console.log(`[Keywords]   - Normalized map entries: ${skillsNormalizedMap.size}`);
-    console.log(`[Keywords]   - Fuzzy search: ${skillsFuse ? 'enabled' : 'disabled'}`);
+    // Only log in development or if loading takes too long
+    if (process.env.NODE_ENV === 'development' || loadDuration > 1000) {
+      console.log(`[Keywords] ✅ Skills database loaded in ${loadDuration}ms (${allSkills.length} skills)`);
+    }
     
     skillsLoaded = true;
   } catch (error) {
     console.warn(`[Keywords] ⚠️  Failed to load skills database: ${error.message}`);
-    console.warn(`[Keywords]   Continuing without fuzzy matching enhancement`);
     skillsDatabase = [];
     skillsNormalizedMap = new Map();
     skillsFuse = null;
@@ -427,47 +420,34 @@ function resolvePythonBinary() {
  */
 async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT) {
   const startTime = Date.now();
-  const pollInterval = 500; // 500ms between checks
+  const pollInterval = 1000; // Increased to 1s between checks for better performance
   let attemptCount = 0;
+  const isDev = process.env.NODE_ENV === 'development';
   
   // Normalize URL (remove trailing slash)
   const normalizedUrl = normalizeUrl(serviceUrl);
   const healthUrl = `${normalizedUrl}/health`;
   
-  console.log(`[NLP Service] 🔍 Health check URL: ${healthUrl}`);
-  
   while (Date.now() - startTime < timeoutMs) {
     attemptCount++;
     try {
       const response = await axios.get(healthUrl, { 
-        timeout: 5000, // Increased timeout for each request
+        timeout: 5000,
         validateStatus: (status) => status === 200
       });
       
       if (response.status === 200 && response.data?.status === 'healthy') {
         const elapsed = Date.now() - startTime;
-        console.log(`[NLP Service] ✅ Health check passed (attempt ${attemptCount}, ${elapsed}ms)`);
-        if (response.data.spacy_model_loaded) {
-          console.log(`[NLP Service]   Model: ${response.data.model_name || 'en_core_web_sm'}`);
+        if (isDev || attemptCount > 1) {
+          console.log(`[NLP Service] ✅ Healthy (${elapsed}ms)`);
         }
         return true;
-      } else {
-        // Log unexpected response
-        if (attemptCount % 10 === 0) {
-          console.log(`[NLP Service] ⚠️  Unexpected health response:`, {
-            status: response.status,
-            data: response.data
-          });
-        }
       }
     } catch (error) {
-      // Service not ready yet, continue polling
-      if (attemptCount % 10 === 0) {
+      // Only log every 5th attempt to reduce noise
+      if (isDev && attemptCount % 5 === 0) {
         const elapsed = Date.now() - startTime;
-        const errorMsg = error.response 
-          ? `Status ${error.response.status}: ${JSON.stringify(error.response.data)}`
-          : error.code || error.message;
-        console.log(`[NLP Service] ⏳ Still waiting... (attempt ${attemptCount}, ${elapsed}ms elapsed, error: ${errorMsg})`);
+        console.log(`[NLP Service] ⏳ Waiting... (${attemptCount} attempts, ${elapsed}ms)`);
       }
     }
     
@@ -475,8 +455,7 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT
   }
   
   const elapsed = Date.now() - startTime;
-  console.log(`[NLP Service] ❌ Health check timeout after ${attemptCount} attempts (${elapsed}ms)`);
-  console.log(`[NLP Service]   Health check URL was: ${healthUrl}`);
+  console.error(`[NLP Service] ❌ Health check timeout (${attemptCount} attempts, ${elapsed}ms)`);
   return false;
 }
 
@@ -501,63 +480,55 @@ function isRemoteNlpService(serviceUrl) {
  * @throws {Error} If service cannot be started
  */
 async function ensureNlpService(serviceUrl) {
+  const isDev = process.env.NODE_ENV === 'development';
+  
   // Check if service is already running
-  console.log(`[NLP Service] 🔍 Checking if service is already running at ${serviceUrl}...`);
   if (await waitForServiceHealth(serviceUrl, 1500)) {
-    console.log(`[NLP Service] ✅ Service is already running\n`);
     return;
   }
   
   // If using remote service (Railway, etc.), don't try to spawn locally
   if (isRemoteNlpService(serviceUrl)) {
-    console.log(`[NLP Service] 🌐 Remote service detected, waiting for it to become available...`);
+    if (isDev) {
+      console.log(`[NLP Service] 🌐 Remote service detected, waiting...`);
+    }
     const isHealthy = await waitForServiceHealth(serviceUrl, HEALTH_CHECK_TIMEOUT);
     if (!isHealthy) {
       throw new Error(`Remote NLP service at ${serviceUrl} is not available. Please ensure it is deployed and running.`);
     }
-    console.log(`[NLP Service] ✅ Remote service is available\n`);
     return;
   }
   
   // Prevent multiple simultaneous startup attempts
   if (nlpStarting) {
-    console.log('[NLP Service] ⏳ Service startup already in progress, waiting...');
     const isHealthy = await waitForServiceHealth(serviceUrl, HEALTH_CHECK_TIMEOUT);
     if (!isHealthy) {
       throw new Error('NLP service failed to start within timeout period');
     }
-    console.log(`[NLP Service] ✅ Service started by another process\n`);
     return;
   }
   
   nlpStarting = true;
+  const isDev = process.env.NODE_ENV === 'development';
   
   try {
-    console.log('\n========================================');
-    console.log('[NLP Service] 🚀 Starting NLP Service');
-    console.log('[NLP Service] ⚠️  This uses NLP (spaCy), NOT LLM/Gemini');
-    console.log('========================================\n');
+    if (isDev) {
+      console.log('[NLP Service] 🚀 Starting NLP service...');
+    }
     
     // Go up 2 levels from backend/src/controllers/ to backend root, then into nlp_service
     const backendRoot = path.resolve(__dirname, '../../');
     const nlpServiceDir = path.join(backendRoot, 'nlp_service');
     
-    console.log(`[Keywords] Backend root: ${backendRoot}`);
-    console.log(`[Keywords] NLP service directory: ${nlpServiceDir}`);
-    
     // Verify NLP service directory exists
     if (!fs.existsSync(nlpServiceDir)) {
-      const errorMsg = `NLP service directory not found: ${nlpServiceDir}`;
-      console.error(`[Keywords] ${errorMsg}`);
-      throw new Error(errorMsg);
+      throw new Error(`NLP service directory not found: ${nlpServiceDir}`);
     }
     
     // Verify main.py exists
     const mainPyPath = path.join(nlpServiceDir, 'main.py');
     if (!fs.existsSync(mainPyPath)) {
-      const errorMsg = `NLP service main.py not found: ${mainPyPath}`;
-      console.error(`[Keywords] ${errorMsg}`);
-      throw new Error(errorMsg);
+      throw new Error(`NLP service main.py not found: ${mainPyPath}`);
     }
     
     const pythonBin = resolvePythonBinary();
@@ -567,9 +538,6 @@ async function ensureNlpService(serviceUrl) {
       '--host', '127.0.0.1',
       '--port', NLP_SERVICE_PORT
     ];
-    
-    console.log(`[Keywords] Spawning NLP service: ${pythonBin} ${args.join(' ')}`);
-    console.log(`[Keywords] Working directory: ${nlpServiceDir}`);
     
     // Spawn the NLP service process
     // Set environment variables to prevent broken pipe errors
@@ -603,37 +571,25 @@ async function ensureNlpService(serviceUrl) {
       const lines = stdoutBuffer.split('\n');
       stdoutBuffer = lines.pop() || ''; // Keep incomplete line in buffer
       
+      // Only log errors and critical messages in production
+      const isDev = process.env.NODE_ENV === 'development';
       for (const line of lines) {
         if (line.trim()) {
           try {
             const output = line.trim();
-            // Process both stdout and stderr messages (since stderr is redirected)
-            if (output.includes('[EMBEDDINGS]')) {
-              const embedMatch = output.match(/\[EMBEDDINGS[^\]]*\].*/);
-              if (embedMatch) {
-                console.log(embedMatch[0]);
-              } else {
-                console.log(`[EMBEDDINGS] ${output}`);
-              }
-            } else if (output.includes('[CUSTOM KEYWORDS]') || output.includes('Custom keywords') || output.includes('custom keyword')) {
-              // Custom keywords loading messages - make them very visible
-              console.log(`[NLP Service - Custom Keywords] ${output}`);
-            } else if (output.includes('Sentence Transformers') || 
-                output.includes('sentence_transformers') ||
-                output.includes('[ST]') || 
-                output.includes('🤖') ||
-                output.includes('⚠️') ||
-                output.includes('✅') ||
-                output.includes('📦')) {
-              console.log(`[NLP Service - Sentence Transformers] ${output}`);
-            } else if (output.includes('INFO:') || output.includes(' - INFO - ')) {
-              console.log(`[NLP Service] ${output}`);
-            } else if (output.includes('WARNING:') || output.includes(' - WARNING - ')) {
-              console.log(`[NLP Service Warning] ${output}`);
-            } else if (output.includes('ERROR:') || output.includes(' - ERROR - ') || output.includes('Traceback')) {
+            // Only log errors in production, log more in development
+            if (output.includes('ERROR:') || output.includes(' - ERROR - ') || output.includes('Traceback')) {
               console.error(`[NLP Service Error] ${output}`);
-            } else {
-              console.log(`[NLP Service] ${output}`);
+            } else if (isDev) {
+              // In development, log important messages
+              if (output.includes('[EMBEDDINGS]') || 
+                  output.includes('[CUSTOM KEYWORDS]') ||
+                  output.includes('Sentence Transformers') ||
+                  output.includes('🤖') ||
+                  output.includes('⚠️') ||
+                  output.includes('✅')) {
+                console.log(`[NLP Service] ${output}`);
+              }
             }
           } catch (err) {
             // Ignore processing errors
@@ -685,25 +641,20 @@ async function ensureNlpService(serviceUrl) {
     });
     
     // Wait for service to become healthy
-    console.log(`[NLP Service] ⏳ Waiting for service to become healthy (timeout: ${HEALTH_CHECK_TIMEOUT}ms)...`);
     const healthCheckStart = Date.now();
     const isHealthy = await waitForServiceHealth(serviceUrl, HEALTH_CHECK_TIMEOUT);
     const healthCheckDuration = Date.now() - healthCheckStart;
     
     if (!isHealthy) {
-      console.error(`[NLP Service] ❌ Service failed health check after ${healthCheckDuration}ms`);
-      throw new Error('NLP service failed to become healthy within timeout period');
+      throw new Error(`NLP service failed health check after ${healthCheckDuration}ms`);
     }
     
-    console.log(`[NLP Service] ✅ Service is healthy (took ${healthCheckDuration}ms)`);
-    console.log(`[NLP Service] ✅ NLP service started successfully`);
-    console.log('========================================\n');
+    if (isDev) {
+      console.log(`[NLP Service] ✅ Started (${healthCheckDuration}ms)`);
+    }
     
   } catch (error) {
-    console.error('\n========================================');
-    console.error('[NLP Service] ❌ Failed to start NLP service');
-    console.error(`[NLP Service]   Error: ${error.message}`);
-    console.error('========================================\n');
+    console.error(`[NLP Service] ❌ Failed to start: ${error.message}`);
     throw error;
   } finally {
     nlpStarting = false;
@@ -870,23 +821,22 @@ const generateKeywords = async (req, res, next) => {
   const requestId = `REQ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const startTime = Date.now();
   
-  console.log('\n========================================');
-  console.log(`[Keywords] 🎯 Keywords Analysis Request Received`);
-  console.log(`[Keywords] Request ID: ${requestId}`);
-  console.log(`[Keywords] Timestamp: ${new Date().toISOString()}`);
-  console.log('========================================\n');
+  // Only log detailed info in development
+  const isDev = process.env.NODE_ENV === 'development';
+  if (isDev) {
+    console.log(`[Keywords] 🎯 Request received (ID: ${requestId})`);
+  }
   
   try {
     const { jobDescription, skills } = req.body;
 
-    console.log(`[Keywords] 📥 Request Details:`);
-    console.log(`[Keywords]   - Job description length: ${jobDescription?.length || 0} characters`);
-    console.log(`[Keywords]   - Skills provided: ${Array.isArray(skills) ? skills.length : 0} skills`);
-    console.log(`[Keywords]   - Using NLP service (spaCy), NOT LLM/Gemini\n`);
+    // Only log details in development
+    if (isDev) {
+      console.log(`[Keywords] 📥 Job desc: ${jobDescription?.length || 0} chars, Skills: ${Array.isArray(skills) ? skills.length : 0}`);
+    }
     
     // Validate input
     if (!jobDescription || typeof jobDescription !== 'string') {
-      console.error(`[Keywords] ❌ Validation failed: jobDescription is invalid`);
       return res.status(400).json({
         error: 'Invalid request',
         message: 'jobDescription must be a non-empty string'
@@ -904,7 +854,6 @@ const generateKeywords = async (req, res, next) => {
     
     // Check if description is too short after cleaning
     if (!cleanedDescription || cleanedDescription.length < 10) {
-      console.error(`[Keywords] ❌ Validation failed: jobDescription is too short after cleaning`);
       return res.status(400).json({
         error: 'Invalid request',
         message: 'jobDescription must contain substantial text (at least 10 characters)'
@@ -915,7 +864,6 @@ const generateKeywords = async (req, res, next) => {
     const finalDescription = cleanedDescription;
     
     if (!Array.isArray(skills)) {
-      console.error(`[Keywords] ❌ Validation failed: skills is not an array`);
       return res.status(400).json({
         error: 'Invalid request',
         message: 'skills must be an array'
@@ -925,22 +873,11 @@ const generateKeywords = async (req, res, next) => {
     // Sanitize and validate skills
     const validatedSkills = validateSkills(skills);
     
-    console.log(`[Keywords] ✅ Validation passed`);
-    console.log(`[Keywords] 📊 Processing:`);
-    console.log(`[Keywords]   - Job description: ${finalDescription.length} chars (cleaned from ${jobDescription.length} chars)`);
-    console.log(`[Keywords]   - Validated skills: ${validatedSkills.length} skills`);
-    console.log(`[Keywords]   - NLP service URL: ${NLP_SERVICE_URL}\n`);
-    
     // Ensure NLP service is running
-    console.log(`[Keywords] 🔍 Step 1: Checking NLP service status...`);
     try {
       await ensureNlpService(NLP_SERVICE_URL);
-      console.log(`[Keywords] ✅ NLP service is ready and running\n`);
     } catch (error) {
-      console.error(`[Keywords] ❌ Failed to ensure NLP service:`);
-      console.error(`[Keywords]   Error: ${error.message}`);
-      console.error(`[Keywords]   Service URL: ${NLP_SERVICE_URL}`);
-      console.error(`[Keywords]   Stack: ${error.stack}\n`);
+      console.error(`[Keywords] ❌ NLP service error: ${error.message}`);
       return res.status(503).json({
         error: 'Service unavailable',
         message: 'NLP service could not be started. Please ensure Python dependencies are installed. Check server logs for details.',
@@ -951,11 +888,6 @@ const generateKeywords = async (req, res, next) => {
     // Extract skills from job description using NLP service with PhraseMatcher
     const normalizedServiceUrl = normalizeUrl(NLP_SERVICE_URL);
     const extractSkillsUrl = `${normalizedServiceUrl}/extract-skills`;
-    console.log(`[Keywords] 🔍 Step 2: Extracting skills using PhraseMatcher + skills.csv...`);
-    console.log(`[Keywords]   Endpoint: ${extractSkillsUrl}`);
-    console.log(`[Keywords]   Method: POST`);
-    console.log(`[Keywords]   Using: spaCy PhraseMatcher with 38k skills from skills.csv`);
-    console.log(`[Keywords]   Timeout: ${NLP_SERVICE_TIMEOUT}ms\n`);
     
     const nlpCallStartTime = Date.now();
     let extractResponse;
@@ -971,21 +903,13 @@ const generateKeywords = async (req, res, next) => {
           headers: { 'Content-Type': 'application/json' }
         }
       );
-      const nlpCallDuration = Date.now() - nlpCallStartTime;
-      console.log(`[Keywords] ✅ NLP service responded successfully`);
-      console.log(`[Keywords]   Response time: ${nlpCallDuration}ms`);
-      console.log(`[Keywords]   Status: ${extractResponse.status}\n`);
+      if (isDev) {
+        const nlpCallDuration = Date.now() - nlpCallStartTime;
+        console.log(`[Keywords] ✅ NLP responded in ${nlpCallDuration}ms`);
+      }
     } catch (error) {
       const nlpCallDuration = Date.now() - nlpCallStartTime;
-      console.error(`[Keywords] ❌ Error calling NLP service:`);
-      console.error(`[Keywords]   Duration: ${nlpCallDuration}ms`);
-      console.error(`[Keywords]   Error code: ${error.code}`);
-      console.error(`[Keywords]   Error message: ${error.message}`);
-      if (error.response) {
-        console.error(`[Keywords]   Response status: ${error.response.status}`);
-        console.error(`[Keywords]   Response data:`, error.response.data);
-      }
-      console.error('');
+      console.error(`[Keywords] ❌ NLP error (${nlpCallDuration}ms): ${error.message}`);
       
       if (error.code === 'ECONNREFUSED') {
         return res.status(503).json({
@@ -1061,38 +985,14 @@ const generateKeywords = async (req, res, next) => {
     const classifierAvailable = (importantSkills.length > 0 || lessImportantSkills.length > 0 || nonTechnicalSkills.length > 0) &&
                                 extractResponse.data?.classifier_available !== false;
     
-    console.log(`[Keywords] 🔍 Step 3: Skills extracted and cleaned`);
-    console.log(`[Keywords]   ┌─────────────────────────────────────────┐`);
-    console.log(`[Keywords]   │ EXTRACTION STATISTICS                   │`);
-    console.log(`[Keywords]   ├─────────────────────────────────────────┤`);
-    console.log(`[Keywords]   │ Total matches:        ${String(stats.total_matches || 0).padStart(6)} │`);
-    console.log(`[Keywords]   │ Unique skills:       ${String(jdSkills.length).padStart(6)} │`);
-    console.log(`[Keywords]   │ Weighted skills:     ${String(stats.weighted_skills || jdSkills.length).padStart(6)} │`);
-    console.log(`[Keywords]   │ Total weight:       ${String(stats.total_weight || 0).padStart(6)} │`);
-    console.log(`[Keywords]   │ Garbage filtered:   ${String(stats.garbage_filtered || 0).padStart(6)} │`);
-    console.log(`[Keywords]   └─────────────────────────────────────────┘`);
-    
-    if (jdSkills.length > 0) {
-      console.log(`[Keywords]   📋 Extracted Skills (first 10):`);
-      jdSkills.slice(0, 10).forEach((skill, idx) => {
-        console.log(`[Keywords]     ${String(idx + 1).padStart(2)}. ${skill}`);
-      });
-      if (jdSkills.length > 10) {
-        console.log(`[Keywords]     ... and ${jdSkills.length - 10} more`);
-      }
-    } else {
-      console.log(`[Keywords]   ⚠️  No skills extracted from job description`);
-    }
-    console.log('');
-    
     // Skills are already cleaned and canonicalized by NLP service
     // No additional cleanup needed - they're ready to use
     const cleanedKeywords = jdSkills;
     
-    console.log(`[Keywords] 🔍 Step 4: Skills ready (already cleaned by NLP service)`);
-    console.log(`[Keywords]   - Skills are canonicalized (node.js → node)`);
-    console.log(`[Keywords]   - Low priority skills filtered`);
-    console.log(`[Keywords]   - Total skills: ${cleanedKeywords.length}\n`);
+    // Only log detailed stats in development
+    if (isDev && jdSkills.length > 0) {
+      console.log(`[Keywords] 📋 Extracted ${jdSkills.length} skills (matches: ${stats.total_matches || 0})`);
+    }
 
     // Create normalized versions for matching (using cleaned skills with weights)
     const jdKeywordsNormalized = cleanedKeywords.map(skill => {
@@ -1577,26 +1477,11 @@ const generateKeywords = async (req, res, next) => {
       missingSkills: allSkills
     };
     
-    // Final summary with structured logging
+    // Final summary - only log in development or if slow
     const totalDuration = Date.now() - startTime;
-    console.log(`[Keywords] 🔍 Step 5: Final Results (Weighted Matching)`);
-    console.log(`[Keywords]   ┌─────────────────────────────────────────┐`);
-    console.log(`[Keywords]   │ MATCHING RESULTS                       │`);
-    console.log(`[Keywords]   ├─────────────────────────────────────────┤`);
-    console.log(`[Keywords]   │ Present skills:    ${String(responseData.present_count).padStart(6)} │`);
-    console.log(`[Keywords]   │ Missing skills:   ${String(responseData.missing_skills.length).padStart(6)} │`);
-    console.log(`[Keywords]   │ Total skills:     ${String(responseData.total_important_keywords).padStart(6)} │`);
-    console.log(`[Keywords]   ├─────────────────────────────────────────┤`);
-    console.log(`[Keywords]   │ Present weight:   ${String(responseData.present_weight || 0).padStart(6)} │`);
-    console.log(`[Keywords]   │ Missing weight:   ${String(responseData.missing_weight || 0).padStart(6)} │`);
-    console.log(`[Keywords]   │ Total weight:     ${String(responseData.total_weight || 0).padStart(6)} │`);
-    console.log(`[Keywords]   ├─────────────────────────────────────────┤`);
-    console.log(`[Keywords]   │ Match % (weighted): ${String(responseData.match_percentage).padStart(4)}% │`);
-    console.log(`[Keywords]   │ Processing time:  ${String(totalDuration).padStart(5)}ms │`);
-    console.log(`[Keywords]   └─────────────────────────────────────────┘`);
-    console.log(`[Keywords] ✅ Request completed successfully`);
-    console.log(`[Keywords] Request ID: ${requestId}`);
-    console.log('========================================\n');
+    if (isDev || totalDuration > 2000) {
+      console.log(`[Keywords] ✅ Completed in ${totalDuration}ms - Match: ${responseData.match_percentage}% (${responseData.present_count}/${responseData.total_important_keywords})`);
+    }
     
     // Send response
     res.json({
@@ -1605,12 +1490,10 @@ const generateKeywords = async (req, res, next) => {
 
   } catch (error) {
     const totalDuration = Date.now() - startTime;
-    console.error(`[Keywords] ❌ Unexpected error occurred:`);
-    console.error(`[Keywords]   Request ID: ${requestId}`);
-    console.error(`[Keywords]   Duration: ${totalDuration}ms`);
-    console.error(`[Keywords]   Error: ${error.message}`);
-    console.error(`[Keywords]   Stack: ${error.stack}`);
-    console.error('========================================\n');
+    console.error(`[Keywords] ❌ Error (${totalDuration}ms): ${error.message}`);
+    if (isDev) {
+      console.error(`[Keywords] Stack: ${error.stack}`);
+    }
     next(error);
   }
 };

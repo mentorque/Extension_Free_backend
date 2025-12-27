@@ -12,6 +12,16 @@ const app = express();
 // Middleware
 app.use(helmet());
 
+// Enable compression for all responses (reduces response size significantly)
+// Note: Install with: npm install compression
+try {
+  const compression = require('compression');
+  app.use(compression());
+} catch (e) {
+  // Compression not installed, skip it
+  console.warn('[App] Compression middleware not available. Install with: npm install compression');
+}
+
 // Enhanced CORS configuration for browser extension
 app.use(cors({
   origin: function (origin, callback) {
@@ -107,32 +117,17 @@ app.use(cors({
   optionsSuccessStatus: 204
 }));
 
-// Custom request logging middleware for performance tracking
+// Optimized request logging - only log slow requests in production
 app.use((req, res, next) => {
   const startTime = Date.now();
   const originalSend = res.send;
   
-  // Log request details for debugging
-  console.log(`[REQUEST_DEBUG] ${req.method} ${req.path}`, {
-    contentType: req.get('Content-Type'),
-    contentLength: req.get('Content-Length'),
-    hasBody: !!req.body,
-    bodyType: typeof req.body,
-    bodyKeys: req.body ? Object.keys(req.body) : 'no body',
-    rawBody: req.body
-  });
-  
   res.send = function(data) {
     const duration = Date.now() - startTime;
-    console.log(`[REQUEST] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`, {
-      userAgent: req.get('User-Agent')?.substring(0, 50) + '...',
-      contentLength: res.get('Content-Length') || 'unknown',
-      timestamp: new Date().toISOString()
-    });
     
-    // Log slow requests (>1 second)
-    if (duration > 1000) {
-      console.warn(`[SLOW_REQUEST] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms) - This request took longer than 1 second`);
+    // Only log slow requests (>1 second) or errors in production
+    if (duration > 1000 || res.statusCode >= 400) {
+      console.warn(`[SLOW_REQUEST] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
     }
     
     originalSend.call(this, data);
@@ -141,7 +136,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(morgan('dev'));
+// Use minimal morgan logging in production, dev in development
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.text({ type: 'text/plain', limit: '10mb' }));
@@ -166,11 +162,13 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Debug: Log all incoming requests to see what paths are being hit
-app.use((req, res, next) => {
-  console.log(`[ROUTE_DEBUG] ${req.method} ${req.path} - Original URL: ${req.originalUrl} - Base URL: ${req.baseUrl}`);
-  next();
-});
+// Debug: Only log in development
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    console.log(`[ROUTE_DEBUG] ${req.method} ${req.path}`);
+    next();
+  });
+}
 
 // Routes - All routes are mounted at /api
 app.use('/api', routes);
