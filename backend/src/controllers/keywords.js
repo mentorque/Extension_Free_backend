@@ -6,6 +6,8 @@
  */
 
 const axios = require('axios');
+const http = require('http');
+const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
@@ -20,6 +22,42 @@ const NLP_SERVICE_PORT = new URL(NLP_SERVICE_URL).port || '8001';
 const NLP_SERVICE_TIMEOUT = parseInt(process.env.NLP_SERVICE_TIMEOUT) || 120000; // 2 minutes (allows time for model download)
 const HEALTH_CHECK_TIMEOUT = parseInt(process.env.HEALTH_CHECK_TIMEOUT) || 120000; // 120 seconds (allows time for Sentence Transformers model download on first run)
 const MAX_PRESENT_SKILLS = 15; // Maximum number of present skills to show
+
+// ============================================================================
+// HTTP Client with Connection Pooling
+// ============================================================================
+
+// Create persistent HTTP agents with keep-alive for connection pooling
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 1000,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 60000,
+  scheduling: 'lifo'
+});
+
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 1000,
+  maxSockets: 50,
+  maxFreeSockets: 10,
+  timeout: 60000,
+  scheduling: 'lifo'
+});
+
+// Create persistent axios instance with connection pooling
+const nlpHttpClient = axios.create({
+  timeout: NLP_SERVICE_TIMEOUT,
+  httpAgent: httpAgent,
+  httpsAgent: httpsAgent,
+  headers: {
+    'Content-Type': 'application/json',
+    'Connection': 'keep-alive'
+  },
+  maxRedirects: 5,
+  validateStatus: (status) => status < 500 // Don't throw on 4xx errors
+});
 
 /**
  * Normalize URL by removing trailing slashes
@@ -42,12 +80,14 @@ let skillsDatabase = null;
 let skillsFuse = null;
 let skillsNormalizedMap = null; // Fast O(1) lookup for exact matches
 let skillsLoaded = false;
+let skillsLoading = false; // Track if loading is in progress
 
-function loadSkillsDatabase() {
-  if (skillsLoaded) {
-    return; // Already loaded
+function loadSkillsDatabaseSync() {
+  if (skillsLoaded || skillsLoading) {
+    return; // Already loaded or loading
   }
   
+  skillsLoading = true;
   const loadStartTime = Date.now();
   
   try {
@@ -129,14 +169,54 @@ function loadSkillsDatabase() {
     }
     
     skillsLoaded = true;
+    skillsLoading = false;
   } catch (error) {
     console.warn(`[Keywords] ⚠️  Failed to load skills database: ${error.message}`);
     skillsDatabase = [];
     skillsNormalizedMap = new Map();
     skillsFuse = null;
     skillsLoaded = true; // Mark as loaded to prevent retry loops
+    skillsLoading = false;
   }
 }
+
+// OPTIMIZATION: Load skills database asynchronously in background
+// This prevents blocking the first request
+function loadSkillsDatabaseAsync() {
+  if (skillsLoaded || skillsLoading) {
+    return; // Already loaded or loading
+  }
+  
+  skillsLoading = true;
+  
+  // Use setImmediate to load in next event loop tick (non-blocking)
+  setImmediate(() => {
+    loadSkillsDatabaseSync();
+  });
+}
+
+// Backward compatibility: keep original function name
+function loadSkillsDatabase() {
+  // If already loaded, return immediately
+  if (skillsLoaded) {
+    return;
+  }
+  
+  // If not loading yet, start async load
+  if (!skillsLoading) {
+    loadSkillsDatabaseAsync();
+  }
+  
+  // For first request, load synchronously to avoid delay
+  // This ensures the first request doesn't wait
+  if (!skillsLoaded) {
+    loadSkillsDatabaseSync();
+  }
+}
+
+// Start loading skills database asynchronously when module loads
+// This pre-loads the database in the background
+loadSkillsDatabaseAsync();
 // Dynamic limit for missing skills based on matched count
 // If user has 6+ matches, show only 2-4 most important missing keywords
 const getMaxMissingSkills = (matchedCount) => {
@@ -376,6 +456,13 @@ const TITLE_CASE_SPECIAL = new Map([
 let nlpProcess = null;
 let nlpStarting = false;
 
+// Health check cache with TTL
+let healthCheckCache = {
+  isHealthy: false,
+  lastChecked: 0,
+  ttl: 5000 // 5 seconds TTL
+};
+
 /**
  * Resolve the Python binary path, preferring project venv
  * @returns {string} Path to Python executable
@@ -418,9 +505,40 @@ function resolvePythonBinary() {
  * @param {number} timeoutMs - Maximum wait time in milliseconds
  * @returns {Promise<boolean>} True if service is healthy
  */
+/**
+ * Check cached health status
+ * @param {string} serviceUrl - Base URL of the NLP service
+ * @returns {boolean|null} Cached health status or null if cache expired
+ */
+function getCachedHealthStatus(serviceUrl) {
+  const now = Date.now();
+  const cacheAge = now - healthCheckCache.lastChecked;
+  
+  // Return cached status if still valid
+  if (cacheAge < healthCheckCache.ttl && healthCheckCache.serviceUrl === serviceUrl) {
+    return healthCheckCache.isHealthy;
+  }
+  
+  return null;
+}
+
+/**
+ * Update health check cache
+ * @param {string} serviceUrl - Base URL of the NLP service
+ * @param {boolean} isHealthy - Health status
+ */
+function updateHealthCache(serviceUrl, isHealthy) {
+  healthCheckCache = {
+    isHealthy,
+    lastChecked: Date.now(),
+    ttl: 5000, // 5 seconds TTL
+    serviceUrl
+  };
+}
+
 async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT) {
   const startTime = Date.now();
-  const pollInterval = 1000; // Increased to 1s between checks for better performance
+  const pollInterval = 500; // Reduced to 500ms for faster startup
   let attemptCount = 0;
   const isDev = process.env.NODE_ENV === 'development';
   
@@ -431,13 +549,15 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT
   while (Date.now() - startTime < timeoutMs) {
     attemptCount++;
     try {
-      const response = await axios.get(healthUrl, { 
+      // Use pooled HTTP client for better performance
+      const response = await nlpHttpClient.get(healthUrl, { 
         timeout: 5000,
         validateStatus: (status) => status === 200
       });
       
       if (response.status === 200 && response.data?.status === 'healthy') {
         const elapsed = Date.now() - startTime;
+        updateHealthCache(serviceUrl, true);
         if (isDev || attemptCount > 1) {
           console.log(`[NLP Service] ✅ Healthy (${elapsed}ms)`);
         }
@@ -455,6 +575,7 @@ async function waitForServiceHealth(serviceUrl, timeoutMs = HEALTH_CHECK_TIMEOUT
   }
   
   const elapsed = Date.now() - startTime;
+  updateHealthCache(serviceUrl, false);
   console.error(`[NLP Service] ❌ Health check timeout (${attemptCount} attempts, ${elapsed}ms)`);
   return false;
 }
@@ -482,7 +603,32 @@ function isRemoteNlpService(serviceUrl) {
 async function ensureNlpService(serviceUrl) {
   const isDev = process.env.NODE_ENV === 'development';
   
-  // Check if service is already running
+  // Check cached health status first (fast path)
+  const cachedHealth = getCachedHealthStatus(serviceUrl);
+  if (cachedHealth === true) {
+    return; // Service is healthy, skip health check
+  }
+  
+  // Quick health check with cached result
+  if (cachedHealth === false) {
+    // Cache says unhealthy, but do a quick check to see if it recovered
+    const normalizedUrl = normalizeUrl(serviceUrl);
+    const healthUrl = `${normalizedUrl}/health`;
+    try {
+      const response = await nlpHttpClient.get(healthUrl, { 
+        timeout: 2000,
+        validateStatus: (status) => status === 200
+      });
+      if (response.status === 200 && response.data?.status === 'healthy') {
+        updateHealthCache(serviceUrl, true);
+        return;
+      }
+    } catch (error) {
+      // Service still unhealthy, continue with full check
+    }
+  }
+  
+  // Check if service is already running (full health check)
   if (await waitForServiceHealth(serviceUrl, 1500)) {
     return;
   }
@@ -509,7 +655,6 @@ async function ensureNlpService(serviceUrl) {
   }
   
   nlpStarting = true;
-  const isDev = process.env.NODE_ENV === 'development';
   
   try {
     if (isDev) {
@@ -827,6 +972,9 @@ const generateKeywords = async (req, res, next) => {
     console.log(`[Keywords] 🎯 Request received (ID: ${requestId})`);
   }
   
+  // Check if processing steps should be included (query parameter)
+  const includeProcessingSteps = req.query.include_steps === 'true' || req.query.include_steps === '1';
+  
   try {
     const { jobDescription, skills } = req.body;
 
@@ -892,15 +1040,12 @@ const generateKeywords = async (req, res, next) => {
     const nlpCallStartTime = Date.now();
     let extractResponse;
     try {
-      extractResponse = await axios.post(
+      // Use pooled HTTP client for better performance
+      extractResponse = await nlpHttpClient.post(
         extractSkillsUrl,
         { 
           text: finalDescription,
           use_fuzzy: true
-        },
-        { 
-          timeout: NLP_SERVICE_TIMEOUT,
-          headers: { 'Content-Type': 'application/json' }
         }
       );
       if (isDev) {
@@ -1012,33 +1157,24 @@ const generateKeywords = async (req, res, next) => {
       lower: skill.toLowerCase()
     }));
     
-    const getTechnologyFamily = (normalizedValue) => {
+    // Optimized technology family detection using Sets for O(1) lookup
+    const getTechnologyFamilyFast = (normalizedValue, nosqlIndicatorsSet, sqlIndicatorsSet) => {
       if (!normalizedValue) {
         return normalizedValue;
       }
 
       const value = normalizedValue.toLowerCase();
 
-      // Handle NoSQL indicators first to avoid being caught by generic SQL checks
+      // Handle NoSQL indicators first
       if (value.includes('nosql')) {
         return 'nosql';
       }
 
-      const nosqlIndicators = [
-        'mongodb',
-        'cassandra',
-        'dynamodb',
-        'couchbase',
-        'cosmosdb',
-        'elasticsearch',
-        'elastic',
-        'firebase',
-        'firestore',
-        'redis'
-      ];
-
-      if (nosqlIndicators.some(indicator => value.includes(indicator))) {
-        return 'nosql';
+      // Fast Set-based lookup for NoSQL
+      for (const indicator of nosqlIndicatorsSet) {
+        if (value.includes(indicator)) {
+          return 'nosql';
+        }
       }
 
       // Broad SQL family detection
@@ -1046,28 +1182,46 @@ const generateKeywords = async (req, res, next) => {
         return 'sql';
       }
 
+      // Fast Set-based lookup for SQL
+      for (const indicator of sqlIndicatorsSet) {
+        if (value.includes(indicator)) {
+          return 'sql';
+        }
+      }
+
+      return normalizedValue;
+    };
+    
+    // Keep original function for backward compatibility in skillMatchesKeyword
+    const getTechnologyFamily = (normalizedValue) => {
+      if (!normalizedValue) {
+        return normalizedValue;
+      }
+
+      const value = normalizedValue.toLowerCase();
+
+      if (value.includes('nosql')) {
+        return 'nosql';
+      }
+
+      const nosqlIndicators = [
+        'mongodb', 'cassandra', 'dynamodb', 'couchbase', 'cosmosdb',
+        'elasticsearch', 'elastic', 'firebase', 'firestore', 'redis'
+      ];
+
+      if (nosqlIndicators.some(indicator => value.includes(indicator))) {
+        return 'nosql';
+      }
+
+      if (value === 'sql' || value.startsWith('sql') || value.endsWith('sql')) {
+        return 'sql';
+      }
+
       const sqlIndicators = [
-        'mysql',
-        'mssql',
-        'sqlserver',
-        'postgresql',
-        'postgres',
-        'postgre',
-        'pgsql',
-        'tsql',
-        'plsql',
-        'mariadb',
-        'sqlite',
-        'redshift',
-        'snowflake',
-        'synapse',
-        'bigquery',
-        'aurora',
-        'aurorasql',
-        'db2',
-        'teradata',
-        'vertica',
-        'hana'
+        'mysql', 'mssql', 'sqlserver', 'postgresql', 'postgres', 'postgre',
+        'pgsql', 'tsql', 'plsql', 'mariadb', 'sqlite', 'redshift',
+        'snowflake', 'synapse', 'bigquery', 'aurora', 'aurorasql',
+        'db2', 'teradata', 'vertica', 'hana'
       ];
 
       if (sqlIndicators.some(indicator => value.includes(indicator))) {
@@ -1078,6 +1232,7 @@ const generateKeywords = async (req, res, next) => {
     };
 
     // Check if a skill matches a keyword (handles variations)
+    // Note: techAbbreviations Set is defined in the outer scope for reuse
     const skillMatchesKeyword = (skillNorm, keywordNorm) => {
       // Exact match after normalization
       if (skillNorm === keywordNorm) return true;
@@ -1086,7 +1241,7 @@ const generateKeywords = async (req, res, next) => {
       if (skillNorm.length < 2 || keywordNorm.length < 2) return false;
 
       // Handle common abbreviations and variations
-      const commonMappings = {
+      const commonMappingsObj = {
         'js': 'javascript',
         'ts': 'typescript',
         'py': 'python',
@@ -1156,8 +1311,8 @@ const generateKeywords = async (req, res, next) => {
       };
 
       // Check if one is an abbreviation of the other
-      const skillMapped = commonMappings[skillNorm] || skillNorm;
-      const keywordMapped = commonMappings[keywordNorm] || keywordNorm;
+      const skillMapped = commonMappingsObj[skillNorm] || skillNorm;
+      const keywordMapped = commonMappingsObj[keywordNorm] || keywordNorm;
 
       if (skillMapped === keywordMapped) return true;
 
@@ -1201,8 +1356,8 @@ const generateKeywords = async (req, res, next) => {
 
       if (longer.includes(shorter)) {
         // Require at least 3 characters for the shorter term (except for common 2-letter tech terms)
-        const techAbbreviations = new Set(['js', 'ts', 'py', 'rb', 'go', 'ai', 'ml', 'bi', 'ci', 'cd', 'ux', 'ui', 'qa', 'sql']);
-        if (shorter.length < 3 && !techAbbreviations.has(shorter)) return false;
+        const techAbbrevs = new Set(['js', 'ts', 'py', 'rb', 'go', 'ai', 'ml', 'bi', 'ci', 'cd', 'ux', 'ui', 'qa', 'sql']);
+        if (shorter.length < 3 && !techAbbrevs.has(shorter)) return false;
 
         // Don't match if the longer term is significantly longer (e.g., "php" should not match "php programming")
         // unless the shorter is at least 70% of the longer
@@ -1239,11 +1394,10 @@ const generateKeywords = async (req, res, next) => {
         return true;
       }
 
-      // Special cases for framework matching
-      // "React", "Angular", "Next" should match "JavaScript frameworks" or "JavaScript"
-      const jsFrameworks = ['react', 'angular', 'vue', 'next', 'nextjs'];
-      if ((jsFrameworks.includes(skillNorm) && (keywordNorm === 'javascript' || keywordNorm.includes('javascript') || keywordNorm.includes('framework'))) ||
-          (jsFrameworks.includes(keywordNorm) && (skillNorm === 'javascript' || skillNorm.includes('javascript') || skillNorm.includes('framework')))) {
+      // Special cases for framework matching (using Set for O(1) lookup)
+      const jsFrameworksSet = new Set(['react', 'angular', 'vue', 'next', 'nextjs']);
+      if ((jsFrameworksSet.has(skillNorm) && (keywordNorm === 'javascript' || keywordNorm.includes('javascript') || keywordNorm.includes('framework'))) ||
+          (jsFrameworksSet.has(keywordNorm) && (skillNorm === 'javascript' || skillNorm.includes('javascript') || skillNorm.includes('framework')))) {
         return true;
       }
 
@@ -1273,10 +1427,53 @@ const generateKeywords = async (req, res, next) => {
       return false;
     };
     
-    // Find skills that are present in the job description
+    // OPTIMIZATION: Pre-build lookup structures for O(1) matching
+    // Build normalized keyword lookup map (normalized -> keyword data)
+    const jdKeywordsByNormalized = new Map();
+    jdKeywordsNormalized.forEach((kw, index) => {
+      if (!jdKeywordsByNormalized.has(kw.normalized)) {
+        jdKeywordsByNormalized.set(kw.normalized, { keyword: kw, index });
+      }
+    });
+    
+    // Pre-build common mappings for fast lookup
+    const commonMappings = new Map([
+      ['js', 'javascript'], ['ts', 'typescript'], ['py', 'python'], ['rb', 'ruby'],
+      ['cs', 'csharp'], ['c#', 'csharp'], ['cpp', 'cplusplus'], ['c++', 'cplusplus'],
+      ['ml', 'machinelearning'], ['ai', 'artificialintelligence'], ['nlp', 'naturallanguageprocessing'],
+      ['bi', 'businessintelligence'], ['ci', 'continuousintegration'], ['cd', 'continuousdeployment'],
+      ['cicd', 'continuousintegration'], ['rdbms', 'relationaldatabase'], ['nosql', 'nosql'],
+      ['ux', 'userinterface'], ['ui', 'userinterface'], ['qa', 'qualityassurance'],
+      ['uat', 'useracceptancetesting'], ['sit', 'systemintegrationtesting'],
+      ['sql', 'sql'], ['php', 'php'], ['html', 'html'], ['css', 'css'],
+      ['mssql', 'sql'], ['mysql', 'sql'], ['postgresql', 'sql'],
+      ['mongodb', 'nosql'], ['cassandra', 'nosql'], ['dynamodb', 'nosql']
+    ]);
+    
+    const skillToKeywordMappings = new Map([
+      ['agilemethodologies', 'agile'], ['agile', 'agile'],
+      ['cicd', 'devops'], ['continuousintegration', 'devops'],
+      ['continuousdeployment', 'devops'], ['devops', 'devops'],
+      ['docker', 'containers'], ['container', 'containers'],
+      ['kubernetes', 'containers'], ['k8s', 'containers'],
+      ['restfulapis', 'restfulapis'], ['restapi', 'restfulapis'],
+      ['restapis', 'restfulapis'], ['api', 'restfulapis'],
+      ['javascript', 'javascript'], ['js', 'javascript'],
+      ['typescript', 'javascript'], ['aspnet', 'aspnet'],
+      ['aspdotnet', 'aspnet'], ['net', 'aspnet'], ['dotnet', 'aspnet'],
+      ['csharp', 'csharp'], ['c#', 'csharp'], ['vb', 'csharp'],
+      ['sql', 'sql'], ['mssql', 'sql'], ['nosql', 'nosql'],
+      ['mongodb', 'nosql'], ['github', 'github'], ['git', 'github']
+    ]);
+    
+    // Pre-build technology family Sets for fast lookup
+    const nosqlIndicators = new Set(['mongodb', 'cassandra', 'dynamodb', 'couchbase', 'cosmosdb', 'elasticsearch', 'elastic', 'firebase', 'firestore', 'redis']);
+    const sqlIndicators = new Set(['mysql', 'mssql', 'sqlserver', 'postgresql', 'postgres', 'postgre', 'pgsql', 'tsql', 'plsql', 'mariadb', 'sqlite', 'redshift', 'snowflake', 'synapse', 'bigquery', 'aurora', 'aurorasql', 'db2', 'teradata', 'vertica', 'hana']);
+    const jsFrameworks = new Set(['react', 'angular', 'vue', 'next', 'nextjs']);
+    const techAbbreviations = new Set(['js', 'ts', 'py', 'rb', 'go', 'ai', 'ml', 'bi', 'ci', 'cd', 'ux', 'ui', 'qa', 'sql']);
+    
     // Sort JD keywords by weight (importance) - most important first
     const sortedJdKeywords = [...jdKeywordsNormalized].sort((a, b) => {
-      // Sort by weight (descending), then by original name
       if (b.weight !== a.weight) {
         return b.weight - a.weight;
       }
@@ -1285,45 +1482,114 @@ const generateKeywords = async (req, res, next) => {
     
     const matchedJdIndices = new Set();
     const presentSkillsWithScores = [];
-    const matchedNormalizedKeywords = new Set(); // Track normalized keywords to prevent duplicates
+    const matchedNormalizedKeywords = new Set();
     
-    // Problem 3 Fix: Weighted matching instead of binary
-    // Match against sorted JD keywords (most important first)
-    validatedSkills.forEach(skill => {
+    // OPTIMIZED: Fast matching with pre-built lookups
+    // Process user skills and match against JD keywords
+    for (const skill of validatedSkills) {
       const skillNormalized = normalizeForMatching(skill);
       
-      // Check if this skill matches any JD keyword (checking most important first)
-      for (let jdKeyword of sortedJdKeywords) {
-        // Find original index in jdKeywordsNormalized
-        const originalIndex = jdKeywordsNormalized.findIndex(k => 
-          k.original === jdKeyword.original && k.normalized === jdKeyword.normalized
-        );
-        
-        if (originalIndex === -1 || matchedJdIndices.has(originalIndex)) {
-          continue;
-        }
-        
-        if (skillMatchesKeyword(skillNormalized, jdKeyword.normalized)) {
-          const normalizedKeyword = jdKeyword.normalized;
+      // Early exit: Skip very short terms
+      if (skillNormalized.length < 2) continue;
+      
+      let matched = false;
+      
+      // Try exact match first (O(1) lookup)
+      const exactMatch = jdKeywordsByNormalized.get(skillNormalized);
+      if (exactMatch && !matchedJdIndices.has(exactMatch.index) && !matchedNormalizedKeywords.has(skillNormalized)) {
+        matchedJdIndices.add(exactMatch.index);
+        matchedNormalizedKeywords.add(skillNormalized);
+        presentSkillsWithScores.push({
+          skill: titleize(exactMatch.keyword.original),
+          normalized: skillNormalized,
+          weight: exactMatch.keyword.weight || 1
+        });
+        matched = true;
+        continue; // Skip to next skill
+      }
+      
+      // If exact match failed, try fuzzy matching (but only on sorted keywords for best matches first)
+      if (!matched) {
+        for (const jdKeyword of sortedJdKeywords) {
+          const originalIndex = jdKeywordsNormalized.findIndex(k => 
+            k.original === jdKeyword.original && k.normalized === jdKeyword.normalized
+          );
           
-          // Skip if we've already added this normalized keyword (prevents duplicates)
-          if (matchedNormalizedKeywords.has(normalizedKeyword)) {
+          if (originalIndex === -1 || matchedJdIndices.has(originalIndex)) {
             continue;
           }
           
-          matchedJdIndices.add(originalIndex); // Mark this JD keyword as matched
-          matchedNormalizedKeywords.add(normalizedKeyword); // Track normalized form
+          // Fast path: Check common mappings first
+          const skillMapped = commonMappings.get(skillNormalized) || skillNormalized;
+          const keywordMapped = commonMappings.get(jdKeyword.normalized) || jdKeyword.normalized;
+          if (skillMapped === keywordMapped) {
+            matchedJdIndices.add(originalIndex);
+            matchedNormalizedKeywords.add(jdKeyword.normalized);
+            presentSkillsWithScores.push({
+              skill: titleize(jdKeyword.original),
+              normalized: jdKeyword.normalized,
+              weight: jdKeyword.weight || 1
+            });
+            matched = true;
+            break;
+          }
           
-          // Use JD keyword name (titleized) instead of user skill name for consistency
-          presentSkillsWithScores.push({
-            skill: titleize(jdKeyword.original), // Use JD keyword, not user skill
-            normalized: normalizedKeyword,
-            weight: jdKeyword.weight || 1
-          });
-          break; // Only match once per user skill
+          // Fast path: Check skill-to-keyword mappings
+          const skillMappedToKeyword = skillToKeywordMappings.get(skillNormalized) || skillNormalized;
+          const keywordMappedToKeyword = skillToKeywordMappings.get(jdKeyword.normalized) || jdKeyword.normalized;
+          if (skillMappedToKeyword === keywordMappedToKeyword) {
+            matchedJdIndices.add(originalIndex);
+            matchedNormalizedKeywords.add(jdKeyword.normalized);
+            presentSkillsWithScores.push({
+              skill: titleize(jdKeyword.original),
+              normalized: jdKeyword.normalized,
+              weight: jdKeyword.weight || 1
+            });
+            matched = true;
+            break;
+          }
+          
+          // Fast path: Technology family matching (O(1) Set lookup)
+          const skillFamily = getTechnologyFamilyFast(skillNormalized, nosqlIndicators, sqlIndicators);
+          const keywordFamily = getTechnologyFamilyFast(jdKeyword.normalized, nosqlIndicators, sqlIndicators);
+          if (skillFamily === 'sql' && keywordFamily === 'sql') {
+            matchedJdIndices.add(originalIndex);
+            matchedNormalizedKeywords.add(jdKeyword.normalized);
+            presentSkillsWithScores.push({
+              skill: titleize(jdKeyword.original),
+              normalized: jdKeyword.normalized,
+              weight: jdKeyword.weight || 1
+            });
+            matched = true;
+            break;
+          }
+          if (skillFamily === 'nosql' && keywordFamily === 'nosql') {
+            matchedJdIndices.add(originalIndex);
+            matchedNormalizedKeywords.add(jdKeyword.normalized);
+            presentSkillsWithScores.push({
+              skill: titleize(jdKeyword.original),
+              normalized: jdKeyword.normalized,
+              weight: jdKeyword.weight || 1
+            });
+            matched = true;
+            break;
+          }
+          
+          // Fallback to full matching function for complex cases
+          if (skillMatchesKeyword(skillNormalized, jdKeyword.normalized)) {
+            matchedJdIndices.add(originalIndex);
+            matchedNormalizedKeywords.add(jdKeyword.normalized);
+            presentSkillsWithScores.push({
+              skill: titleize(jdKeyword.original),
+              normalized: jdKeyword.normalized,
+              weight: jdKeyword.weight || 1
+            });
+            matched = true;
+            break;
+          }
         }
       }
-    });
+    }
     
     // Sort present skills by weight (descending) - most important first
     presentSkillsWithScores.sort((a, b) => {
@@ -1359,55 +1625,82 @@ const generateKeywords = async (req, res, next) => {
       return shuffled;
     };
 
+    // OPTIMIZATION: Combine filter/map operations into single passes
     // Split present skills into important (weight >= 2) and less important (weight < 2)
-    let importantPresentSkills = presentSkillsWithScores
-      .filter(item => (item.weight || 1) >= 2)
-      .map(item => item.skill);
-    let lessImportantPresentSkills = presentSkillsWithScores
-      .filter(item => (item.weight || 1) < 2)
-      .map(item => item.skill);
+    // Also extract presentSkills and calculate presentWeight in the same pass
+    const importantPresentSkillsArray = [];
+    const lessImportantPresentSkillsArray = [];
+    const presentSkillsArray = [];
+    let presentWeight = 0;
     
-    const presentSkills = presentSkillsWithScores.map(item => item.skill);
-    const presentWeight = presentSkillsWithScores.reduce((sum, item) => sum + (item.weight || 1), 0);
+    for (const item of presentSkillsWithScores) {
+      const weight = item.weight || 1;
+      const skill = item.skill;
+      presentSkillsArray.push(skill);
+      presentWeight += weight;
+      
+      if (weight >= 2) {
+        importantPresentSkillsArray.push(skill);
+      } else {
+        lessImportantPresentSkillsArray.push(skill);
+      }
+    }
     
+    let importantPresentSkills = importantPresentSkillsArray;
+    let lessImportantPresentSkills = lessImportantPresentSkillsArray;
+    const presentSkills = presentSkillsArray;
+    
+    // OPTIMIZATION: Combine filter/sort/map operations into fewer passes
     // Find all keywords from JD that user doesn't have (excluding matched ones)
-    // Sort by weight (descending) - most important missing skills first
-    const missingSkills = jdKeywordsNormalized
-      .filter((kw, index) => {
-        // Exclude matched indices
-        if (matchedJdIndices.has(index)) {
-          return false;
-        }
-        // Exclude if normalized form was already matched
-        if (matchedNormalizedKeywords.has(kw.normalized)) {
-          return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        // Sort by weight (descending), then alphabetically
-        if (b.weight !== a.weight) {
-          return b.weight - a.weight;
-        }
-        return a.original.localeCompare(b.original);
-      });
+    // Also split into important/less important and calculate missingWeight in the same pass
+    const missingSkillsArray = [];
+    const importantMissingSkillsArray = [];
+    const lessImportantMissingSkillsArray = [];
+    let missingWeight = 0;
     
-    // Split missing skills into important (weight >= 2) and less important (weight < 2)
-    let importantMissingSkills = missingSkills
-      .filter(kw => (kw.weight || 1) >= 2)
-      .map(kw => titleize(kw.original));
-    let lessImportantMissingSkills = missingSkills
-      .filter(kw => (kw.weight || 1) < 2)
-      .map(kw => titleize(kw.original));
+    // First pass: filter and collect missing skills
+    for (let index = 0; index < jdKeywordsNormalized.length; index++) {
+      const kw = jdKeywordsNormalized[index];
+      // Exclude matched indices
+      if (matchedJdIndices.has(index)) {
+        continue;
+      }
+      // Exclude if normalized form was already matched
+      if (matchedNormalizedKeywords.has(kw.normalized)) {
+        continue;
+      }
+      missingSkillsArray.push(kw);
+    }
+    
+    // Sort by weight (descending) - most important missing skills first
+    missingSkillsArray.sort((a, b) => {
+      if (b.weight !== a.weight) {
+        return b.weight - a.weight;
+      }
+      return a.original.localeCompare(b.original);
+    });
+    
+    // Second pass: split into important/less important and calculate weight
+    for (const kw of missingSkillsArray) {
+      const weight = kw.weight || 1;
+      missingWeight += weight;
+      const titleized = titleize(kw.original);
+      
+      if (weight >= 2) {
+        importantMissingSkillsArray.push(titleized);
+      } else {
+        lessImportantMissingSkillsArray.push(titleized);
+      }
+    }
+    
+    // Create allSkills array (already titleized in the loop above)
+    const allSkills = missingSkillsArray.map(kw => titleize(kw.original));
     
     // Randomize the skills: subtle shuffle for matching, full shuffle for missing
     importantPresentSkills = subtleShuffle(importantPresentSkills);
-    importantMissingSkills = shuffleArray(importantMissingSkills);
+    const importantMissingSkills = shuffleArray(importantMissingSkillsArray);
     lessImportantPresentSkills = subtleShuffle(lessImportantPresentSkills);
-    lessImportantMissingSkills = shuffleArray(lessImportantMissingSkills);
-    
-    const allSkills = missingSkills.map(kw => titleize(kw.original));
-    const missingWeight = missingSkills.reduce((sum, kw) => sum + (kw.weight || 1), 0);
+    const lessImportantMissingSkills = shuffleArray(lessImportantMissingSkillsArray);
     const totalWeight = presentWeight + missingWeight;
     
     // Problem 3 Fix: Calculate weighted match percentage
@@ -1433,8 +1726,15 @@ const generateKeywords = async (req, res, next) => {
       missing_weight: missingWeight,
       total_weight: totalWeight,
       bifurcated: true,
-      // Step-by-step processing details
-      processing_steps: {
+      // All extracted keywords for display
+      extractedKeywords: jdSkills,
+      matchedSkills: presentSkills,
+      missingSkills: allSkills
+    };
+    
+    // OPTIMIZATION: Only include processing_steps if requested (reduces response size)
+    if (includeProcessingSteps) {
+      responseData.processing_steps = {
         step1_phrasematcher: {
           name: "spaCy PhraseMatcher",
           description: "Extract skills using PhraseMatcher with 38k skills database",
@@ -1470,12 +1770,8 @@ const generateKeywords = async (req, res, next) => {
           missing_count: allSkills.length,
           match_percentage: weightedMatchPercentage
         }
-      },
-      // All extracted keywords for display
-      extractedKeywords: jdSkills,
-      matchedSkills: presentSkills,
-      missingSkills: allSkills
-    };
+      };
+    }
     
     // Final summary - only log in development or if slow
     const totalDuration = Date.now() - startTime;
